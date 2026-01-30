@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { Bell, BellOff, MessageSquare, Reply, Send, Trash2 } from 'lucide-react'
-import Avatar from 'boring-avatars'
 import { createComment, deleteComment, getComments } from '@/app/comments/actions'
+import UserAvatar from './UserAvatar'
 
 type User = {
   id: string
@@ -26,8 +26,6 @@ interface TaskCommentsProps {
   users: User[]
   currentUserId: string // The user writing comments (e.g., "Kike")
 }
-
-const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
 
 export default function TaskComments({ taskId, users, currentUserId }: TaskCommentsProps) {
   const [comments, setComments] = useState<Comment[]>([])
@@ -230,19 +228,7 @@ function CommentItem({
   return (
     <div className="space-y-3">
       <div className="flex gap-3">
-        <div className="relative flex-shrink-0">
-          <Avatar
-            size={32}
-            name={comment.author.name}
-            variant="beam"
-            colors={AVATAR_COLORS}
-          />
-          {comment.author.isBot && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
-              🤖
-            </span>
-          )}
-        </div>
+        <UserAvatar user={comment.author} size={32} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="font-medium text-sm">{comment.author.name}</span>
@@ -298,12 +284,7 @@ function CommentItem({
         <div className="ml-10 space-y-3 border-l-2 border-border pl-4">
           {comment.replies.map((reply) => (
             <div key={reply.id} className="flex gap-3">
-              <Avatar
-                size={24}
-                name={reply.author.name}
-                variant="beam"
-                colors={AVATAR_COLORS}
-              />
+              <UserAvatar user={reply.author} size={24} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{reply.author.name}</span>

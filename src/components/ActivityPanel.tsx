@@ -11,6 +11,7 @@ import {
   MoveRight,
   PlusCircle,
   Trash2,
+  UserCheck,
 } from 'lucide-react'
 
 type ActivityItem = {
@@ -27,6 +28,7 @@ const ACTION_LABEL: Record<string, string> = {
   moved: 'movió',
   completed: 'completó',
   deleted: 'eliminó',
+  assigned: 'asignó',
 }
 
 const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
@@ -34,6 +36,7 @@ const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
   moved: MoveRight,
   completed: CheckCircle2,
   deleted: Trash2,
+  assigned: UserCheck,
 }
 
 export default function ActivityPanel({ activities }: { activities: ActivityItem[] }) {

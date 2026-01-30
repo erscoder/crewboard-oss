@@ -9,12 +9,11 @@ const prisma = new PrismaClient()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-// Auto-detect Clawdbot root (mission-control is in projects/)
-const MISSION_CONTROL_ROOT = path.resolve(__dirname, '..')
-const CLAWDBOT_ROOT = process.env.CLAWDBOT_ROOT || path.resolve(MISSION_CONTROL_ROOT, '..', '..')
+// Paths - adjust if Clawdbot is installed elsewhere
+const CLAWDBOT_ROOT = process.env.CLAWDBOT_ROOT || '/Users/kike/clawd'
 const PROJECTS_DIR = path.join(CLAWDBOT_ROOT, 'projects')
 const SKILLS_DIR = path.join(CLAWDBOT_ROOT, 'skills')
-const LOCAL_SKILLS_DIR = path.join(MISSION_CONTROL_ROOT, 'skills')
+const LOCAL_SKILLS_DIR = path.join(__dirname, '..', 'skills')
 
 /**
  * Agent definitions for Mission Control
@@ -45,6 +44,7 @@ function getProjectColor(name: string): string {
 }
 
 function formatProjectName(dirName: string): string {
+  // Convert kebab-case to Title Case
   return dirName
     .split('-')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -53,7 +53,6 @@ function formatProjectName(dirName: string): string {
 
 async function syncProjects() {
   console.log('📁 Syncing projects from filesystem...')
-  console.log(`   Source: ${PROJECTS_DIR}`)
   
   if (!fs.existsSync(PROJECTS_DIR)) {
     console.log(`   ⚠ Projects directory not found: ${PROJECTS_DIR}`)
@@ -93,7 +92,6 @@ async function syncAgents() {
         data: {
           name: agent.name,
           isBot: agent.isBot,
-          agentSkill: agent.agentSkill,
         },
       })
       console.log(`   ✓ Created agent: ${agent.name} (${agent.agentSkill || 'human'})`)
@@ -113,8 +111,6 @@ async function syncAgents() {
 
 function syncSkills() {
   console.log('\n🧠 Syncing skills to Clawdbot...')
-  console.log(`   From: ${LOCAL_SKILLS_DIR}`)
-  console.log(`   To:   ${SKILLS_DIR}`)
   
   if (!fs.existsSync(LOCAL_SKILLS_DIR)) {
     console.log(`   ⚠ Local skills directory not found: ${LOCAL_SKILLS_DIR}`)
@@ -123,8 +119,7 @@ function syncSkills() {
 
   if (!fs.existsSync(SKILLS_DIR)) {
     console.log(`   ⚠ Clawdbot skills directory not found: ${SKILLS_DIR}`)
-    console.log(`   Creating it...`)
-    fs.mkdirSync(SKILLS_DIR, { recursive: true })
+    return
   }
 
   const skills = fs.readdirSync(LOCAL_SKILLS_DIR, { withFileTypes: true })
@@ -135,11 +130,7 @@ function syncSkills() {
     const src = path.join(LOCAL_SKILLS_DIR, skill)
     const dest = path.join(SKILLS_DIR, skill)
 
-    // Remove if it's a symlink (we want real files)
-    if (fs.existsSync(dest) && fs.lstatSync(dest).isSymbolicLink()) {
-      fs.unlinkSync(dest)
-    }
-
+    // Copy skill directory
     if (!fs.existsSync(dest)) {
       fs.cpSync(src, dest, { recursive: true })
       console.log(`   ✓ Installed skill: ${skill}`)
@@ -156,12 +147,17 @@ function syncSkills() {
 
 async function main() {
   console.log('🚀 Seeding Mission Control...\n')
-  console.log(`Clawdbot root: ${CLAWDBOT_ROOT}\n`)
 
+  // Sync projects from filesystem
   await syncProjects()
+
+  // Sync agents
   await syncAgents()
+
+  // Sync skills to Clawdbot
   syncSkills()
 
+  // Ensure Harvis bot status row
   await prisma.botStatus.upsert({
     where: { id: 'harvis' },
     update: {},

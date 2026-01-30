@@ -30,6 +30,21 @@ npm run db:seed
 npm run dev
 ```
 
+## Cloudflare Pages + Supabase Deploy
+
+1) **Dependencias**: `npm install --save-dev @cloudflare/next-on-pages` (añadido en `package.json`; ejecútalo si no está en `node_modules`).
+2) **Variables de entorno** (Cloudflare Pages y `.env`):
+   - `DATABASE_URL` → cadena del pooler de Supabase (puerto 6543) con `?pgbouncer=true&connection_limit=1&pool_timeout=30`
+   - `DIRECT_DATABASE_URL` → conexión directa (puerto 5432) para Prisma CLI/migraciones
+   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+3) **Build**: `npm run build:cf` genera `.vercel/output` usando `@cloudflare/next-on-pages`.
+4) **Cloudflare Pages**:
+   - Build command: `npm run build:cf`
+   - Output directory: `.vercel/output/static`
+   - Functions directory: `.vercel/output/functions`
+   - Config: `wrangler.toml` ya incluye `nodejs_compat` y placeholders en `[vars]`.
+5) **Prisma**: usa el pooler para runtime (`DATABASE_URL`) y la conexión directa para migraciones (`DIRECT_DATABASE_URL`) para evitar agotar conexiones del proyecto Supabase.
+
 ## Agents & Skills
 
 Mission Control manages a team of AI agents, each with specialized skills.

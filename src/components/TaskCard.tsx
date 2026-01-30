@@ -5,6 +5,7 @@ import { MoreHorizontal, Paperclip, Trash2, User } from 'lucide-react'
 import { useState } from 'react'
 import { deleteTask } from '@/app/actions'
 import ConfirmDialog from './ConfirmDialog'
+import UserAvatar from './UserAvatar'
 
 interface TaskCardProps {
   task: any
@@ -74,14 +75,7 @@ export default function TaskCard({ task, onSelect }: TaskCardProps) {
         {/* Assignee */}
         {task.assignee ? (
           <div className="flex items-center gap-2">
-            <div 
-              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-              style={{ 
-                backgroundColor: task.assignee.isBot ? 'hsl(142, 71%, 45%)' : 'hsl(262, 83%, 58%)',
-              }}
-            >
-              {task.assignee.name.charAt(0)}
-            </div>
+            <UserAvatar user={task.assignee} size={28} />
             <span className="text-xs text-muted-foreground">
               {task.assignee.name}
             </span>

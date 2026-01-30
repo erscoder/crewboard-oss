@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import { Paperclip, X } from 'lucide-react'
 import { createTask } from '@/app/actions'
+import { useRouter } from 'next/navigation'
 
 interface CreateTaskModalProps {
   projects: any[]
@@ -10,11 +11,17 @@ interface CreateTaskModalProps {
   onClose: () => void
 }
 
+const STATUS_OPTIONS = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const
+type TaskStatus = (typeof STATUS_OPTIONS)[number]
+
 export default function CreateTaskModal({ projects, users, onClose }: CreateTaskModalProps) {
+  const router = useRouter()
+  const [isRefreshing, startTransition] = useTransition()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState(projects[0]?.id || '')
   const [assigneeId, setAssigneeId] = useState('')
+  const [status, setStatus] = useState<TaskStatus>('BACKLOG')
   const [attachments, setAttachments] = useState<{ url: string; filename: string }[]>([
     { url: '', filename: '' },
   ])
@@ -36,15 +43,16 @@ export default function CreateTaskModal({ projects, users, onClose }: CreateTask
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) return
+    if (!title.trim() || !description.trim()) return
 
     setLoading(true)
     try {
       await createTask({
         title: title.trim(),
-        description: description.trim() || undefined,
+        description: description.trim(),
         projectId,
         assigneeId: assigneeId || undefined,
+        status,
         attachments: attachments
           .filter((att) => att.url.trim())
           .map((att) => ({
@@ -52,9 +60,16 @@ export default function CreateTaskModal({ projects, users, onClose }: CreateTask
             filename: att.filename.trim() || undefined,
           })),
       })
+
+      // Refresh the current route so the Kanban board picks up the new task
+      startTransition(() => {
+        router.refresh()
+      })
+
       setTitle('')
       setDescription('')
       setAssigneeId('')
+      setStatus('BACKLOG')
       setAttachments([{ url: '', filename: '' }])
       onClose()
     } catch (error) {
@@ -91,19 +106,37 @@ export default function CreateTaskModal({ projects, users, onClose }: CreateTask
               placeholder="What needs to be done?"
               className="w-full px-3 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:outline-none"
               autoFocus
+              required
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="block text-sm text-muted-foreground mb-1.5">Description (optional)</label>
+            <label className="block text-sm text-muted-foreground mb-1.5">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Add more details..."
-              rows={3}
-              className="w-full px-3 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:outline-none resize-none"
+              rows={6}
+              className="w-full px-3 py-3.5 rounded-xl bg-background border border-border focus:border-primary focus:outline-none resize-none"
+              required
             />
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1.5">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as TaskStatus)}
+              className="w-full px-3 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:outline-none cursor-pointer"
+            >
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Attachments */}
@@ -202,10 +235,10 @@ export default function CreateTaskModal({ projects, users, onClose }: CreateTask
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || loading}
+              disabled={!title.trim() || !description.trim() || loading}
               className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Creating...' : 'Create Task'}
+              {loading || isRefreshing ? 'Creating...' : 'Create Task'}
             </button>
           </div>
         </form>

@@ -1,8 +1,10 @@
 'use client'
 
+import { useEffect, useState, useTransition } from 'react'
 import { format } from 'date-fns'
-import { CalendarClock, FolderKanban, Paperclip, User2, X } from 'lucide-react'
+import { CalendarClock, FolderKanban, Loader2, Paperclip, User2, X } from 'lucide-react'
 import TaskComments from './TaskComments'
+import StatusBadge from './StatusBadge'
 
 type User = {
   id: string
@@ -11,14 +13,41 @@ type User = {
   isBot: boolean
 }
 
+type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE'
+
 type TaskDetailsProps = {
   task: any
   users: User[]
   currentUserId: string
   onClose: () => void
+  onStatusChange: (status: TaskStatus) => void
+  onAssigneeChange: (assigneeId: string | null) => void | Promise<void>
 }
 
-export default function TaskDetails({ task, users, currentUserId, onClose }: TaskDetailsProps) {
+export default function TaskDetails({
+  task,
+  users,
+  currentUserId,
+  onClose,
+  onStatusChange,
+  onAssigneeChange,
+}: TaskDetailsProps) {
+  const [selectedAssignee, setSelectedAssignee] = useState(task.assignee?.id ?? '')
+  const [isChangingAssignee, startTransition] = useTransition()
+
+  useEffect(() => {
+    setSelectedAssignee(task.assignee?.id ?? '')
+  }, [task.assignee?.id, task.id])
+
+  const handleAssigneeChange = (value: string) => {
+    setSelectedAssignee(value)
+    startTransition(() => {
+      Promise.resolve(onAssigneeChange(value || null)).catch((error) =>
+        console.error('Failed to update assignee', error)
+      )
+    })
+  }
+
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -33,7 +62,10 @@ export default function TaskDetails({ task, users, currentUserId, onClose }: Tas
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
               Task Detail
             </p>
-            <h3 className="text-xl font-semibold leading-tight">{task.title}</h3>
+            <h3 className="text-xl font-semibold leading-tight flex items-center gap-3">
+              {task.title}
+              <StatusBadge status={task.status} />
+            </h3>
             {task.project && (
               <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">
                 <FolderKanban className="w-3.5 h-3.5" />
@@ -55,6 +87,26 @@ export default function TaskDetails({ task, users, currentUserId, onClose }: Tas
         </div>
 
         <div className="space-y-6 px-6 py-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Status</p>
+            <div className="grid grid-cols-2 gap-3">
+              {['BACKLOG','TODO','IN_PROGRESS','REVIEW','DONE'].map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => onStatusChange(status as TaskStatus)}
+                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors ${
+                    task.status === status
+                      ? 'border-primary/60 bg-primary/5 text-primary'
+                      : 'border-border hover:border-primary/40 hover:text-primary'
+                  }`}
+                >
+                  <span className="font-medium">{status.replace('_', ' ')}</span>
+                  <StatusBadge status={status} />
+                </button>
+              ))}
+            </div>
+          </div>
           {task.description && (
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
@@ -64,17 +116,34 @@ export default function TaskDetails({ task, users, currentUserId, onClose }: Tas
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <InfoRow
               icon={<CalendarClock className="w-4 h-4" />}
               label="Created"
               value={format(new Date(task.createdAt), 'PPP')}
             />
-            <InfoRow
-              icon={<User2 className="w-4 h-4" />}
-              label="Assignee"
-              value={task.assignee ? task.assignee.name : 'Unassigned'}
-            />
+            <div className="rounded-xl border border-border px-3 py-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <User2 className="w-4 h-4" />
+                <span>Assign to</span>
+                {isChangingAssignee && (
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-auto" />
+                )}
+              </div>
+              <select
+                value={selectedAssignee}
+                onChange={(e) => handleAssigneeChange(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-lg bg-background border border-border focus:border-primary focus:outline-none cursor-pointer"
+              >
+                <option value="">Unassigned</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.isBot ? '🤖 ' : '👤 '}
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>

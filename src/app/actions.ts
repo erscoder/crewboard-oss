@@ -12,9 +12,10 @@ type AttachmentInput = {
 
 export async function createTask(data: {
   title: string
-  description?: string
+  description: string
   projectId: string
   assigneeId?: string
+  status?: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE'
   attachments?: AttachmentInput[]
 }) {
   const attachmentsPayload =
@@ -33,7 +34,7 @@ export async function createTask(data: {
       description: data.description,
       projectId: data.projectId,
       assigneeId: data.assigneeId,
-      status: 'BACKLOG',
+      status: data.status ?? 'BACKLOG',
       attachments: attachmentsPayload.length
         ? { create: attachmentsPayload }
         : undefined,
@@ -56,8 +57,8 @@ export async function createTask(data: {
 }
 
 export async function moveTask(
-  taskId: string, 
-  newStatus: 'BACKLOG' | 'IN_PROGRESS' | 'REVIEW' | 'DONE',
+  taskId: string,
+  newStatus: 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE',
   newOrder: number
 ) {
   const task = await prisma.task.findUnique({ where: { id: taskId } })
@@ -128,6 +129,33 @@ export async function updateBotStatus(isWorking: boolean, currentTaskId?: string
       currentTaskId,
     },
   })
+}
+
+export async function updateTaskAssignee(taskId: string, assigneeId?: string | null) {
+  const task = await prisma.task.findUnique({ where: { id: taskId } })
+  if (!task) return null
+
+  const nextAssigneeId = assigneeId || null
+
+  const updatedTask = await prisma.task.update({
+    where: { id: taskId },
+    data: { assigneeId: nextAssigneeId },
+    include: { assignee: true, project: true, attachments: true },
+  })
+
+  await prisma.activity.create({
+    data: {
+      type: 'assigned',
+      message: nextAssigneeId
+        ? `Task assigned to ${updatedTask.assignee?.name ?? 'someone'}`
+        : 'Task unassigned',
+      taskId,
+      userId: nextAssigneeId ?? undefined,
+    },
+  })
+
+  revalidatePath('/')
+  return updatedTask
 }
 
 // Seed initial data if empty

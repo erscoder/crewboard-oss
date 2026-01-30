@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { Rocket, Plus, Users, FolderKanban, ChevronDown, Filter } from 'lucide-react'
 import CreateTaskModal from './CreateTaskModal'
+import UserAvatar from './UserAvatar'
 
 interface HeaderProps {
   projects: any[]
@@ -67,16 +68,12 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
             {/* Users */}
             <div className="flex items-center -space-x-2">
               {users.map((user) => (
-                <div
+                <UserAvatar
                   key={user.id}
-                  className="w-8 h-8 rounded-full border-2 border-background flex items-center justify-center text-xs font-bold"
-                  style={{ 
-                    backgroundColor: user.isBot ? 'hsl(142, 71%, 45%)' : 'hsl(262, 83%, 58%)',
-                  }}
-                  title={user.name}
-                >
-                  {user.name.charAt(0)}
-                </div>
+                  user={user}
+                  size={32}
+                  className="border-2 border-background"
+                />
               ))}
             </div>
 

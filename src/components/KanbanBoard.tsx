@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Archive, ListTodo, PlayCircle, Eye, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import TaskCard from './TaskCard'
-import { moveTask } from '@/app/actions'
+import { moveTask, updateTaskAssignee } from '@/app/actions'
 import TaskDetails from './TaskDetails'
+
+type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE'
 
 // Main board columns (without backlog)
 const COLUMNS = [
@@ -38,17 +40,16 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
     const task = tasksCopy[taskIndex]
     
     tasksCopy.splice(taskIndex, 1)
-    task.status = destination.droppableId
+    task.status = destination.droppableId as TaskStatus
     
     // Find insertion point
-    const destTasks = tasksCopy.filter(t => t.status === destination.droppableId)
     const insertIndex = tasksCopy.findIndex(t => t.status === destination.droppableId) + destination.index
     tasksCopy.splice(insertIndex >= 0 ? insertIndex : tasksCopy.length, 0, task)
     
     setTasks(tasksCopy)
 
     // Persist to DB
-    await moveTask(draggableId, destination.droppableId as any, destination.index)
+    await moveTask(draggableId, destination.droppableId as TaskStatus, destination.index)
   }
 
   const getTasksByStatus = (status: string) => {
@@ -56,6 +57,42 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
   }
 
   const backlogTasks = getTasksByStatus('BACKLOG')
+
+  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+    setTasks((prev) => {
+      const updated = [...prev]
+      const taskIndex = updated.findIndex((t) => t.id === taskId)
+      if (taskIndex === -1) return prev
+
+      const [task] = updated.splice(taskIndex, 1)
+      task.status = newStatus
+
+      const targetIndex = updated.findIndex((t) => t.status === newStatus)
+      updated.splice(targetIndex, 0, task)
+
+      return updated
+    })
+
+    await moveTask(taskId, newStatus, 0)
+  }
+
+  const handleAssigneeChange = async (taskId: string, assigneeId: string | null) => {
+    const assignee = users.find((user) => user.id === assigneeId) ?? null
+
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              assigneeId: assignee?.id,
+              assignee,
+            }
+          : task
+      )
+    )
+
+    await updateTaskAssignee(taskId, assigneeId)
+  }
 
   useEffect(() => {
     if (!selectedTask) return
@@ -197,6 +234,8 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
           task={selectedTask} 
           users={users}
           currentUserId={currentUserId}
+          onStatusChange={(status) => handleStatusChange(selectedTask.id, status)}
+          onAssigneeChange={(assigneeId) => handleAssigneeChange(selectedTask.id, assigneeId)}
           onClose={() => setSelectedTask(null)} 
         />
       )}

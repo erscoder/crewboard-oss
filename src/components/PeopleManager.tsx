@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState, useTransition } from 'react'
-import { Bot, Check, ChevronDown, Pencil, Plus, Trash2, UserRound, X, Zap } from 'lucide-react'
-import Avatar from 'boring-avatars'
+import { Check, Pencil, Plus, Trash2, X, Zap } from 'lucide-react'
 import { createPerson, deletePerson, updatePerson } from '@/app/people/actions'
+import UserAvatar from './UserAvatar'
 
 type Person = {
   id: string
@@ -221,7 +221,7 @@ export default function PeopleManager({
               className="group relative rounded-2xl border border-border bg-card/70 p-4 transition hover:border-primary/40"
             >
               <div className="flex items-center gap-3 mb-3">
-                <AvatarCircle person={person} />
+                <UserAvatar user={person} />
                 <div>
                   <p className="font-semibold">{person.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -275,41 +275,4 @@ export default function PeopleManager({
   )
 }
 
-// Color palette for avatars
-const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6']
-
-function AvatarCircle({ person }: { person: Person }) {
-  if (person.avatar) {
-    return (
-      <div className="relative">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={person.avatar}
-          alt={person.name}
-          className="h-11 w-11 rounded-full object-cover border border-border"
-        />
-        {person.isBot && (
-          <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white shadow-md">
-            <Bot className="w-3 h-3" />
-          </span>
-        )}
-      </div>
-    )
-  }
-
-  return (
-    <div className="relative">
-      <Avatar
-        size={44}
-        name={person.name}
-        variant="beam"
-        colors={AVATAR_COLORS}
-      />
-      {person.isBot && (
-        <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500 text-white shadow-md">
-          <Bot className="w-3 h-3" />
-        </span>
-      )}
-    </div>
-  )
-}
+// Avatar rendering now shared via UserAvatar component
