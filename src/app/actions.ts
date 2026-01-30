@@ -3,12 +3,30 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
+type AttachmentInput = {
+  url: string
+  filename?: string
+  mimeType?: string
+  size?: number
+}
+
 export async function createTask(data: {
   title: string
   description?: string
   projectId: string
   assigneeId?: string
+  attachments?: AttachmentInput[]
 }) {
+  const attachmentsPayload =
+    data.attachments
+      ?.filter((file) => file.url?.trim())
+      .map((file) => ({
+        url: file.url.trim(),
+        filename: file.filename?.trim() || deriveFilename(file.url),
+        mimeType: file.mimeType ?? null,
+        size: file.size ?? null,
+      })) ?? []
+
   const task = await prisma.task.create({
     data: {
       title: data.title,
@@ -16,7 +34,11 @@ export async function createTask(data: {
       projectId: data.projectId,
       assigneeId: data.assigneeId,
       status: 'BACKLOG',
+      attachments: attachmentsPayload.length
+        ? { create: attachmentsPayload }
+        : undefined,
     },
+    include: { attachments: true, project: true, assignee: true },
   })
 
   // Log activity
@@ -61,10 +83,14 @@ export async function moveTask(
   })
 
   // Log activity
+  const activityType = newStatus === 'DONE' ? 'completed' : 'moved'
   await prisma.activity.create({
     data: {
-      type: 'moved',
-      message: `Task moved to ${newStatus.replace('_', ' ').toLowerCase()}`,
+      type: activityType,
+      message:
+        activityType === 'completed'
+          ? 'Task completed'
+          : `Task moved to ${newStatus.replace('_', ' ').toLowerCase()}`,
       taskId,
     },
   })
@@ -148,4 +174,14 @@ export async function seedData() {
   })
 
   revalidatePath('/')
+}
+
+function deriveFilename(url: string) {
+  try {
+    const pathname = new URL(url).pathname
+    const lastSegment = pathname.split('/').filter(Boolean).pop()
+    return lastSegment || 'attachment'
+  } catch {
+    return 'attachment'
+  }
 }

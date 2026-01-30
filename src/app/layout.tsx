@@ -5,8 +5,8 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Mission Control',
-  description: 'Task management for Kike & Harvis',
+  title: 'MoltBoard',
+  description: 'Task management for Moltbot',
 }
 
 export default function RootLayout({

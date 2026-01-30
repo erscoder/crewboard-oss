@@ -2,6 +2,8 @@
 
 Guía para agentes que trabajan con Mission Control.
 
+> **Definiciones**: Los agentes se definen en `prisma/agents.ts` y se crean automáticamente con `npm run db:seed`.
+
 ## Conceptos
 
 - **Tareas**: Unidades de trabajo asignadas a un agente

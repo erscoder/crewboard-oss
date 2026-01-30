@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
-import { Rocket, Plus, Filter, RefreshCw } from 'lucide-react'
+import { Rocket, Plus, Users, FolderKanban, ChevronDown, Filter } from 'lucide-react'
 import CreateTaskModal from './CreateTaskModal'
 
 interface HeaderProps {
@@ -28,40 +29,29 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
               <Rocket className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold">Mission Control</h1>
-              <p className="text-xs text-muted-foreground">Kike & Harvis</p>
+              <h1 className="text-xl font-bold">MoltBoard</h1>
+              <p className="text-xs text-muted-foreground">Moltbot task management</p>
             </div>
           </div>
 
-          {/* Center: Project Filter */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedProject(null)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                !selectedProject 
-                  ? 'bg-primary/20 text-primary' 
-                  : 'bg-card hover:bg-card-hover text-muted-foreground'
-              }`}
-            >
-              All
-            </button>
-            {projects.map((project) => (
-              <button
-                key={project.id}
-                onClick={() => setSelectedProject(project.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                  selectedProject === project.id 
-                    ? 'bg-card-hover text-foreground' 
-                    : 'bg-card hover:bg-card-hover text-muted-foreground'
-                }`}
+          {/* Center: Project Filter Dropdown */}
+          <div className="relative">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <select
+                value={selectedProject || ''}
+                onChange={(e) => setSelectedProject(e.target.value || null)}
+                className="appearance-none bg-card border border-border rounded-xl px-4 py-2 pr-10 text-sm font-medium focus:border-primary focus:outline-none cursor-pointer min-w-[180px]"
               >
-                <span 
-                  className="w-2 h-2 rounded-full" 
-                  style={{ backgroundColor: project.color }}
-                />
-                {project.name}
-              </button>
-            ))}
+                <option value="">All Projects</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-muted-foreground absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           {/* Right: Actions & Users */}
@@ -89,6 +79,22 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                 </div>
               ))}
             </div>
+
+            <Link
+              href="/projects"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors"
+            >
+              <FolderKanban className="w-4 h-4" />
+              Projects
+            </Link>
+
+            <Link
+              href="/people"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              People
+            </Link>
 
             {/* New Task Button */}
             <button

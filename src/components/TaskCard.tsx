@@ -1,28 +1,39 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
-import { MoreHorizontal, User, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Paperclip, Trash2, User } from 'lucide-react'
 import { useState } from 'react'
 import { deleteTask } from '@/app/actions'
+import ConfirmDialog from './ConfirmDialog'
 
 interface TaskCardProps {
   task: any
-  projects: any[]
-  users: any[]
+  onSelect?: () => void
 }
 
-export default function TaskCard({ task, projects, users }: TaskCardProps) {
+export default function TaskCard({ task, onSelect }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const handleDelete = async () => {
-    if (confirm('Delete this task?')) {
-      await deleteTask(task.id)
-    }
+    setDeleting(true)
+    await deleteTask(task.id)
+    setDeleting(false)
+    setShowDeleteConfirm(false)
     setShowMenu(false)
   }
 
   return (
-    <div className="group relative bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-all cursor-grab active:cursor-grabbing">
+    <div
+      className="group relative bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-all cursor-grab active:cursor-grabbing"
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') onSelect?.()
+      }}
+    >
       {/* Project Badge */}
       {task.project && (
         <div 
@@ -48,6 +59,14 @@ export default function TaskCard({ task, projects, users }: TaskCardProps) {
         <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
           {task.description}
         </p>
+      )}
+
+      {/* Attachments */}
+      {task.attachments?.length > 0 && (
+        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+          <Paperclip className="w-3.5 h-3.5" />
+          <span>{task.attachments.length} attachment{task.attachments.length > 1 ? 's' : ''}</span>
+        </div>
       )}
 
       {/* Footer */}
@@ -94,7 +113,11 @@ export default function TaskCard({ task, projects, users }: TaskCardProps) {
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 py-1 bg-card border border-border rounded-lg shadow-xl z-10 min-w-[120px]">
                 <button
-                  onClick={handleDelete}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowDeleteConfirm(true)
+                    setShowMenu(false)
+                  }}
                   className="flex items-center gap-2 px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 w-full text-left"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -105,6 +128,20 @@ export default function TaskCard({ task, projects, users }: TaskCardProps) {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Task"
+          message={`Are you sure you want to delete "${task.title}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </div>
   )
 }

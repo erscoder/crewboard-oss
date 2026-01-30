@@ -1,6 +1,6 @@
 # Mission Control 🚀
 
-Task management dashboard for Kike & Harvis. A Kanban board where Kike assigns tasks, Harvis picks them up, and they collaborate on projects.
+Task management dashboard for Moltbot. A Kanban board where user signs tasks, Harvis picks them up, and they collaborate on projects.
 
 ## Features
 

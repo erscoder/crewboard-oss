@@ -2,12 +2,13 @@ import { prisma } from '@/lib/prisma'
 import KanbanBoard from '@/components/KanbanBoard'
 import StatsBar from '@/components/StatsBar'
 import Header from '@/components/Header'
+import ActivityPanel from '@/components/ActivityPanel'
 import { Suspense } from 'react'
 
 async function getInitialData() {
   const [tasks, projects, users, botStatus] = await Promise.all([
     prisma.task.findMany({
-      include: { project: true, assignee: true },
+      include: { project: true, assignee: true, attachments: true },
       orderBy: [{ status: 'asc' }, { order: 'asc' }],
     }),
     prisma.project.findMany(),
@@ -43,9 +44,20 @@ async function getStats() {
   }
 }
 
+async function getActivities() {
+  return prisma.activity.findMany({
+    take: 40,
+    orderBy: { createdAt: 'desc' },
+    include: { user: true, task: true },
+  })
+}
+
 export default async function Home() {
-  const { tasks, projects, users, botStatus } = await getInitialData()
-  const stats = await getStats()
+  const [{ tasks, projects, users, botStatus }, stats, activities] = await Promise.all([
+    getInitialData(),
+    getStats(),
+    getActivities(),
+  ])
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -55,14 +67,17 @@ export default async function Home() {
         botStatus={botStatus}
       />
       <StatsBar stats={stats} />
-      <div className="flex-1 p-6">
-        <Suspense fallback={<div className="text-muted-foreground">Loading board...</div>}>
-          <KanbanBoard 
-            initialTasks={tasks} 
-            projects={projects}
-            users={users}
-          />
-        </Suspense>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1 p-6 overflow-auto">
+          <Suspense fallback={<div className="text-muted-foreground">Loading board...</div>}>
+            <KanbanBoard 
+              initialTasks={tasks}
+              users={users}
+              currentUserId={users.find(u => !u.isBot)?.id || users[0]?.id || ''}
+            />
+          </Suspense>
+        </div>
+        <ActivityPanel activities={activities} />
       </div>
     </main>
   )

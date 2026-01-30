@@ -1,0 +1,136 @@
+'use client'
+
+import { format } from 'date-fns'
+import { CalendarClock, FolderKanban, Paperclip, User2, X } from 'lucide-react'
+import TaskComments from './TaskComments'
+
+type User = {
+  id: string
+  name: string
+  avatar: string | null
+  isBot: boolean
+}
+
+type TaskDetailsProps = {
+  task: any
+  users: User[]
+  currentUserId: string
+  onClose: () => void
+}
+
+export default function TaskDetails({ task, users, currentUserId, onClose }: TaskDetailsProps) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg max-h-[85vh] bg-card border border-border rounded-2xl shadow-2xl overflow-y-auto mx-4 animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
+              Task Detail
+            </p>
+            <h3 className="text-xl font-semibold leading-tight">{task.title}</h3>
+            {task.project && (
+              <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">
+                <FolderKanban className="w-3.5 h-3.5" />
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ backgroundColor: task.project.color }}
+                />
+                {task.project.name}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border p-2 hover:bg-card-hover transition-colors"
+            aria-label="Close task details"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="space-y-6 px-6 py-6">
+          {task.description && (
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                Description
+              </p>
+              <p className="text-sm leading-relaxed text-foreground/90">{task.description}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <InfoRow
+              icon={<CalendarClock className="w-4 h-4" />}
+              label="Created"
+              value={format(new Date(task.createdAt), 'PPP')}
+            />
+            <InfoRow
+              icon={<User2 className="w-4 h-4" />}
+              label="Assignee"
+              value={task.assignee ? task.assignee.name : 'Unassigned'}
+            />
+          </div>
+
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              Attachments
+            </p>
+            {task.attachments?.length ? (
+              <div className="space-y-2">
+                {task.attachments.map((file: any) => (
+                  <a
+                    key={file.id}
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 rounded-xl border border-border px-3 py-2 text-sm hover:border-primary/40 hover:text-primary transition-colors"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{file.filename || 'Attachment'}</p>
+                      <p className="text-xs text-muted-foreground truncate">{file.url}</p>
+                    </div>
+                    {file.mimeType && (
+                      <span className="text-[11px] text-muted-foreground">{file.mimeType}</span>
+                    )}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                No attachments yet.
+              </div>
+            )}
+          </div>
+
+          {/* Comments Section */}
+          <div className="pt-4 border-t border-border">
+            <TaskComments
+              taskId={task.id}
+              users={users}
+              currentUserId={currentUserId}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border px-3 py-2">
+      <div className="text-muted-foreground">{icon}</div>
+      <div>
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="font-medium">{value}</p>
+      </div>
+    </div>
+  )
+}
