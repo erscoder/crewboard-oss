@@ -115,7 +115,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
                 className="flex flex-col min-h-0 max-h-[700px] w-[260px] flex-shrink-0 snap-start overflow-hidden md:w-[320px] lg:w-auto lg:flex-shrink"
               >
                 {/* Column Header */}
-                <div className="sticky top-0 z-10 mb-4 flex items-center gap-2 bg-background md:mb-5">
+                <div className="sticky top-0 z-10 mb-4 flex items-center gap-2  md:mb-5">
                   <Icon className={`w-5 h-5 ${column.color}`} />
                   <h2 className="font-semibold text-sm md:text-base">{column.title}</h2>
                   <span className="ml-auto px-2 py-0.5 rounded-full bg-card text-xs text-muted-foreground">

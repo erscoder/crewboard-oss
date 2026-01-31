@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { CalendarClock, FolderKanban, Loader2, Paperclip, User2, X } from 'lucide-react'
 import TaskComments from './TaskComments'
@@ -34,6 +34,7 @@ export default function TaskDetails({
 }: TaskDetailsProps) {
   const [selectedAssignee, setSelectedAssignee] = useState(task.assignee?.id ?? '')
   const [isChangingAssignee, startTransition] = useTransition()
+  const statusSelectRef = useRef<HTMLSelectElement>(null)
 
   useEffect(() => {
     setSelectedAssignee(task.assignee?.id ?? '')
@@ -64,7 +65,6 @@ export default function TaskDetails({
             </p>
             <h3 className="text-xl font-semibold leading-tight flex items-center gap-3">
               {task.title}
-              <StatusBadge status={task.status} />
             </h3>
             {task.project && (
               <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">
@@ -89,22 +89,37 @@ export default function TaskDetails({
         <div className="space-y-6 px-6 py-6">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">Status</p>
-            <div className="grid grid-cols-2 gap-3">
-              {['BACKLOG','TODO','IN_PROGRESS','REVIEW','DONE'].map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  onClick={() => onStatusChange(status as TaskStatus)}
-                  className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm transition-colors ${
-                    task.status === status
-                      ? 'border-primary/60 bg-primary/5 text-primary'
-                      : 'border-border hover:border-primary/40 hover:text-primary'
-                  }`}
-                >
-                  <span className="font-medium">{status.replace('_', ' ')}</span>
-                  <StatusBadge status={status as TaskStatus} />
-                </button>
-              ))}
+            <div className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const select = statusSelectRef.current
+                  if (select?.showPicker) {
+                    select.showPicker()
+                  } else {
+                    select?.focus()
+                    select?.click()
+                  }
+                }}
+                className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm hover:border-primary/50 transition-colors"
+                aria-haspopup="listbox"
+                aria-label="Change status"
+              >
+                <StatusBadge status={task.status} />
+                <span className="font-medium capitalize">{task.status.replace('_', ' ')}</span>
+              </button>
+              <select
+                ref={statusSelectRef}
+                value={task.status}
+                onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
+                className="sr-only"
+              >
+                {['BACKLOG', 'TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'].map((status) => (
+                  <option key={status} value={status}>
+                    {status.replace('_', ' ')}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           {task.description && (
