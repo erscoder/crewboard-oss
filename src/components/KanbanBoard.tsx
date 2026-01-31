@@ -112,10 +112,10 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
             return (
               <div
                 key={column.id}
-                className="flex flex-col min-h-0 w-[260px] flex-shrink-0 snap-start md:w-[320px] lg:w-auto lg:flex-shrink"
+                className="flex flex-col min-h-0 max-h-[700px] w-[260px] flex-shrink-0 snap-start overflow-hidden md:w-[320px] lg:w-auto lg:flex-shrink"
               >
                 {/* Column Header */}
-                <div className="flex items-center gap-2 mb-4 md:mb-5">
+                <div className="sticky top-0 z-10 mb-4 flex items-center gap-2 bg-background md:mb-5">
                   <Icon className={`w-5 h-5 ${column.color}`} />
                   <h2 className="font-semibold text-sm md:text-base">{column.title}</h2>
                   <span className="ml-auto px-2 py-0.5 rounded-full bg-card text-xs text-muted-foreground">
@@ -129,7 +129,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`flex-1 rounded-xl p-3 md:p-4 transition-colors overflow-y-auto ${
+                      className={`flex-1 min-h-0 rounded-xl p-3 md:p-4 transition-colors overflow-y-auto ${
                         snapshot.isDraggingOver 
                           ? 'bg-primary/5 border-2 border-dashed border-primary/30' 
                           : 'bg-card/30 border border-border'
