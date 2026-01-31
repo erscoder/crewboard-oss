@@ -83,6 +83,165 @@ async function resolveChannelName(client: WebClient, channelId: string, provided
   return channelId
 }
 
+/**
+ * Send notification when a task is assigned to someone
+ */
+export async function sendTaskAssignedNotification(
+  taskId: string,
+  assigneeName: string,
+  options?: { slackChannel?: string; workspaceId?: string },
+) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          slackChannel: { include: { workspace: true } },
+          slackWorkspace: true,
+        },
+      },
+    },
+  })
+
+  if (!task?.project) {
+    return { ok: false, error: 'Task or project not found' }
+  }
+
+  const slackChannelId =
+    options?.slackChannel ?? task.project.slackChannel?.channelId ?? undefined
+  if (!slackChannelId) {
+    return { ok: false, error: 'No Slack channel configured' }
+  }
+
+  const workspace =
+    task.project.slackChannel?.workspace ||
+    (task.project.slackWorkspaceId
+      ? await getSlackWorkspace(task.project.slackWorkspaceId)
+      : null) ||
+    (options?.workspaceId ? await getSlackWorkspace(options.workspaceId) : null) ||
+    (await getSlackWorkspace())
+
+  if (!workspace?.accessToken) {
+    return { ok: false, error: 'No Slack workspace connected' }
+  }
+
+  const client = createClient(workspace.accessToken)
+  const taskUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3020'}/?task=${taskId}`
+
+  try {
+    await client.chat.postMessage({
+      channel: slackChannelId,
+      text: `📋 "${task.title}" assigned to ${assigneeName}`,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `:clipboard: *${task.shortId || 'Task'}* assigned to *${assigneeName}*`,
+          },
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*<${taskUrl}|${task.title}>*\n${task.description?.slice(0, 200) || '_No description_'}`,
+          },
+        },
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `Project: *${task.project.name}* | Status: *${task.status}*`,
+            },
+          ],
+        },
+      ],
+    })
+
+    return { ok: true }
+  } catch (error: any) {
+    console.error('Failed to send Slack assignment notification', error?.data || error?.message)
+    return { ok: false, error: 'Failed to send notification' }
+  }
+}
+
+/**
+ * Send a comment to Slack thread
+ */
+export async function sendCommentToSlack(
+  taskId: string,
+  commentContent: string,
+  authorName: string,
+  options?: { slackChannel?: string; workspaceId?: string; threadTs?: string },
+) {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    include: {
+      project: {
+        include: {
+          slackChannel: { include: { workspace: true } },
+          slackWorkspace: true,
+        },
+      },
+    },
+  })
+
+  if (!task?.project) {
+    return { ok: false, error: 'Task or project not found' }
+  }
+
+  const slackChannelId =
+    options?.slackChannel ?? task.project.slackChannel?.channelId ?? undefined
+  if (!slackChannelId) {
+    return { ok: false, error: 'No Slack channel configured' }
+  }
+
+  const workspace =
+    task.project.slackChannel?.workspace ||
+    (task.project.slackWorkspaceId
+      ? await getSlackWorkspace(task.project.slackWorkspaceId)
+      : null) ||
+    (options?.workspaceId ? await getSlackWorkspace(options.workspaceId) : null) ||
+    (await getSlackWorkspace())
+
+  if (!workspace?.accessToken) {
+    return { ok: false, error: 'No Slack workspace connected' }
+  }
+
+  const client = createClient(workspace.accessToken)
+
+  try {
+    const result = await client.chat.postMessage({
+      channel: slackChannelId,
+      thread_ts: options?.threadTs || task.slackThreadTs || undefined,
+      text: `💬 ${authorName}: ${commentContent}`,
+      blocks: [
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `💬 *${authorName}* commented on *${task.shortId || task.title}*:\n\n${commentContent}`,
+          },
+        },
+      ],
+    }) as any
+
+    // Save thread_ts for future replies if this was the first message
+    if (result.ts && !task.slackThreadTs) {
+      await prisma.task.update({
+        where: { id: taskId },
+        data: { slackThreadTs: result.ts },
+      })
+    }
+
+    return { ok: true, ts: result.ts }
+  } catch (error: any) {
+    console.error('Failed to send comment to Slack', error?.data || error?.message)
+    return { ok: false, error: 'Failed to send comment' }
+  }
+}
+
 export async function sendTaskDoneNotification(
   taskId: string,
   options?: { slackChannel?: string; workspaceId?: string; channelName?: string },

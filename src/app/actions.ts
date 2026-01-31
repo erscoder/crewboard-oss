@@ -216,7 +216,16 @@ export async function updateTaskAssignee(taskId: string, assigneeId?: string | n
   const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: { assigneeId: nextAssigneeId },
-    include: { assignee: true, project: true, attachments: true },
+    include: { 
+      assignee: true, 
+      project: { 
+        include: { 
+          slackChannel: true,
+          slackWorkspace: true 
+        } 
+      }, 
+      attachments: true 
+    },
   })
 
   await prisma.activity.create({
@@ -229,6 +238,15 @@ export async function updateTaskAssignee(taskId: string, assigneeId?: string | n
       userId: nextAssigneeId ?? undefined,
     },
   })
+
+  // Send Slack notification if assigned and project has Slack configured
+  if (nextAssigneeId && updatedTask.assignee && updatedTask.project?.slackChannel) {
+    import('@/lib/slack').then(({ sendTaskAssignedNotification }) => {
+      sendTaskAssignedNotification(taskId, updatedTask.assignee!.name).catch(err => {
+        console.error('Slack assignment notification failed:', err)
+      })
+    })
+  }
 
   revalidatePath('/')
   return updatedTask

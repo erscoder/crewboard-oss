@@ -2,12 +2,14 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { sendCommentToSlack } from '@/lib/slack'
 
 export async function createComment(data: {
   taskId: string
   authorId: string
   content: string
   parentId?: string
+  fromSlack?: boolean // Skip sending back to Slack if comment came from Slack
 }) {
   const comment = await prisma.comment.create({
     data: {
@@ -23,6 +25,13 @@ export async function createComment(data: {
       }
     }
   })
+
+  // Send to Slack if not already from Slack
+  if (!data.fromSlack && comment.author) {
+    sendCommentToSlack(data.taskId, data.content, comment.author.name).catch(err => {
+      console.error('Failed to send comment to Slack:', err)
+    })
+  }
 
   revalidatePath('/')
   return comment
