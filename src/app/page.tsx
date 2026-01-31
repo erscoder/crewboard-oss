@@ -68,7 +68,7 @@ export default async function Home() {
   ])
 
   const currentUserId =
-    session?.user?.id || users.find((u) => !u.isBot)?.id || users[0]?.id || ''
+    session?.user?.id || users.find((u:any) => !u.isBot)?.id || users[0]?.id || ''
 
   return (
     <main className="min-h-screen flex flex-col">
