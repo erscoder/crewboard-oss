@@ -28,6 +28,11 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
   const [selectedTask, setSelectedTask] = useState<any | null>(null)
   const [backlogExpanded, setBacklogExpanded] = useState(true)
 
+  // Sync with server data when initialTasks changes (after revalidation)
+  useEffect(() => {
+    setTasks(initialTasks)
+  }, [initialTasks])
+
   const onDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result
 
