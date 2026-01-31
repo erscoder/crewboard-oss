@@ -35,15 +35,21 @@ export default function TaskCard({ task, onSelect }: TaskCardProps) {
         if (e.key === 'Enter') onSelect?.()
       }}
     >
-      {/* Project Badge */}
-      {task.project && (
-        <div
-          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium mb-2"
-          style={{
-            backgroundColor: `${task.project.color}20`,
-            color: task.project.color,
-          }}
-        >
+      {/* Task ID & Project Badge */}
+      <div className="flex items-center gap-2 mb-2">
+        {task.shortId && (
+          <span className="text-xs font-mono text-muted-foreground">
+            {task.shortId}
+          </span>
+        )}
+        {task.project && (
+          <div
+            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
+            style={{
+              backgroundColor: `${task.project.color}20`,
+              color: task.project.color,
+            }}
+          >
           <span
             className="w-1.5 h-1.5 rounded-full"
             style={{ backgroundColor: task.project.color }}
@@ -63,17 +69,11 @@ export default function TaskCard({ task, onSelect }: TaskCardProps) {
             )}
           </span>
         </div>
-      )}
+        )}
+      </div>
 
       {/* Title */}
-      <div className="flex items-start gap-2 mb-2">
-        {task.shortId && (
-          <span className="shrink-0 text-xs font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
-            {task.shortId}
-          </span>
-        )}
-        <h3 className="font-medium text-sm md:text-base line-clamp-2">{task.title}</h3>
-      </div>
+      <h3 className="font-medium text-sm md:text-base mb-2 line-clamp-2">{task.title}</h3>
 
       {/* Description Preview */}
       {task.description && (
