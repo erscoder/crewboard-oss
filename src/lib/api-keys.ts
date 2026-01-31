@@ -7,7 +7,7 @@ import { ApiKeyStatus, ApiProvider } from '@prisma/client'
 import { prisma } from './prisma'
 import { decryptString, encryptString } from './crypto'
 
-export const SUPPORTED_API_PROVIDERS: ApiProvider[] = ['ANTHROPIC', 'OPENAI']
+export const SUPPORTED_API_PROVIDERS: ApiProvider[] = ['ANTHROPIC', 'OPENAI', 'GOOGLE']
 
 export type ApiKeySummary = {
   provider: ApiProvider
@@ -36,18 +36,24 @@ export type ApiKeyOverview = {
 export const providerLabels: Record<ApiProvider, string> = {
   OPENAI: 'OpenAI',
   ANTHROPIC: 'Claude (Anthropic)',
+  GOOGLE: 'Google (Gemini)',
 }
 
 export function normalizeProvider(provider: string | ApiProvider): ApiProvider | null {
   const value = provider.toString().toUpperCase()
   if (value === 'OPENAI') return 'OPENAI'
   if (value === 'ANTHROPIC' || value === 'CLAUDE') return 'ANTHROPIC'
+  if (value === 'GOOGLE' || value === 'GEMINI') return 'GOOGLE'
   return null
 }
 
 export function getPlatformApiKey(provider: ApiProvider): string | null {
-  const envVar = provider === 'OPENAI' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'
-  return process.env[envVar] || null
+  const envVars: Record<ApiProvider, string> = {
+    OPENAI: 'OPENAI_API_KEY',
+    ANTHROPIC: 'ANTHROPIC_API_KEY',
+    GOOGLE: 'GOOGLE_AI_API_KEY',
+  }
+  return process.env[envVars[provider]] || null
 }
 
 async function validateOpenAIKey(apiKey: string): Promise<{ status: ApiKeyStatus; errorMessage?: string }> {
@@ -72,8 +78,24 @@ async function validateAnthropicKey(apiKey: string): Promise<{ status: ApiKeySta
   }
 }
 
+async function validateGoogleKey(apiKey: string): Promise<{ status: ApiKeyStatus; errorMessage?: string }> {
+  try {
+    // Google AI API validation - list models endpoint
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`)
+    if (!res.ok) {
+      const error = await res.text()
+      return { status: ApiKeyStatus.INVALID, errorMessage: `API error: ${res.status}` }
+    }
+    return { status: ApiKeyStatus.VALID }
+  } catch (error: any) {
+    const message = error?.message || 'Unable to validate Google key'
+    return { status: ApiKeyStatus.INVALID, errorMessage: message }
+  }
+}
+
 export async function validateApiKey(provider: ApiProvider, apiKey: string) {
   if (provider === 'OPENAI') return validateOpenAIKey(apiKey)
+  if (provider === 'GOOGLE') return validateGoogleKey(apiKey)
   return validateAnthropicKey(apiKey)
 }
 

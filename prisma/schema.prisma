@@ -29,6 +29,7 @@ enum SubscriptionStatus {
 enum ApiProvider {
   OPENAI
   ANTHROPIC
+  GOOGLE
 }
 
 enum ApiKeyStatus {
