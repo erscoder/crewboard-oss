@@ -109,7 +109,7 @@ export default function TaskCard({ task, onSelect }: TaskCardProps) {
 
         {/* Time & Actions */}
         <div className="flex items-center gap-2">
-          <span className="text-xs md:text-sm text-muted-foreground">
+          <span className="text-xs md:text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(task.createdAt), { addSuffix: true })}
           </span>
           

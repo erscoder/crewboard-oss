@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
   
   try {
-    const result = await runAgent(agent.id, taskId, session.user.id)
+    const result = await runAgent(agent.id, taskId)
     
     return NextResponse.json({
       success: result.status === 'COMPLETED',
