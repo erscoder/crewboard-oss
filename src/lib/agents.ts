@@ -196,67 +196,113 @@ Please complete this task. Provide a clear summary of what you did and any relev
 }
 
 /**
- * Call LLM API (Anthropic Claude by default)
+ * Call LLM API with tool support (Anthropic Claude)
  */
 async function callLLM(agent: any, prompt: string) {
+  const { getToolsForAgent, executeTool } = await import('./agent-tools')
+  
   const apiKey = process.env.ANTHROPIC_API_KEY
-
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY not configured')
   }
 
-  // Determine model - map friendly names to API models
+  // Determine model
   const modelMap: Record<string, string> = {
     'claude-opus-4-5': 'claude-opus-4-5-20250514',
     'claude-sonnet-4': 'claude-sonnet-4-20250514',
     'claude-haiku': 'claude-3-5-haiku-20241022',
   }
-  
   const model = modelMap[agent.model] || agent.model || 'claude-sonnet-4-20250514'
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
+  // Get tools for this agent
+  const tools = getToolsForAgent(agent.name, agent.tools)
+  
+  // Conversation loop for tool calls
+  const messages: any[] = [{ role: 'user', content: prompt }]
+  let totalInputTokens = 0
+  let totalOutputTokens = 0
+  let finalOutput = ''
+  const maxIterations = 10 // Prevent infinite loops
+
+  for (let i = 0; i < maxIterations; i++) {
+    const requestBody: any = {
       model,
       max_tokens: agent.maxTokens || 4096,
       temperature: agent.temperature || 0.7,
-      messages: [
-        { role: 'user', content: prompt },
-      ],
-    }),
-  })
+      messages,
+    }
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Anthropic API error: ${response.status} - ${error}`)
+    // Only include tools if agent has any
+    if (tools.length > 0) {
+      requestBody.tools = tools
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`Anthropic API error: ${response.status} - ${error}`)
+    }
+
+    const data = await response.json()
+    
+    totalInputTokens += data.usage?.input_tokens || 0
+    totalOutputTokens += data.usage?.output_tokens || 0
+
+    // Check if we have tool calls
+    const toolUses = data.content?.filter((c: any) => c.type === 'tool_use') || []
+    const textBlocks = data.content?.filter((c: any) => c.type === 'text') || []
+    
+    // Collect text output
+    const textOutput = textBlocks.map((c: any) => c.text).join('\n')
+    if (textOutput) {
+      finalOutput += (finalOutput ? '\n\n' : '') + textOutput
+    }
+
+    // If no tool calls, we're done
+    if (toolUses.length === 0 || data.stop_reason === 'end_turn') {
+      break
+    }
+
+    // Execute tool calls
+    const toolResults: any[] = []
+    for (const toolUse of toolUses) {
+      console.log(`[agent-tools] Executing ${toolUse.name}:`, JSON.stringify(toolUse.input).slice(0, 100))
+      
+      const result = await executeTool(toolUse.name, toolUse.input, agent.name)
+      
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: toolUse.id,
+        content: result.success ? result.result : `Error: ${result.error}`,
+        is_error: !result.success,
+      })
+    }
+
+    // Add assistant message with tool uses and user message with results
+    messages.push({ role: 'assistant', content: data.content })
+    messages.push({ role: 'user', content: toolResults })
   }
 
-  const data = await response.json()
+  const totalTokens = totalInputTokens + totalOutputTokens
 
-  // Extract text from response
-  const output = data.content
-    ?.filter((c: any) => c.type === 'text')
-    .map((c: any) => c.text)
-    .join('\n') || ''
-
-  const inputTokens = data.usage?.input_tokens || 0
-  const outputTokens = data.usage?.output_tokens || 0
-  const totalTokens = inputTokens + outputTokens
-
-  // Estimate cost (rough rates)
-  const inputCost = (inputTokens / 1_000_000) * 3 // $3/M input
-  const outputCost = (outputTokens / 1_000_000) * 15 // $15/M output
+  // Estimate cost (rough rates for Sonnet)
+  const inputCost = (totalInputTokens / 1_000_000) * 3 // $3/M input
+  const outputCost = (totalOutputTokens / 1_000_000) * 15 // $15/M output
   const cost = inputCost + outputCost
 
   return {
-    output,
-    inputTokens,
-    outputTokens,
+    output: finalOutput || 'No output generated',
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
     totalTokens,
     cost,
   }
