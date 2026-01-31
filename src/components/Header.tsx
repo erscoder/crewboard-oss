@@ -127,6 +127,14 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
               Usage
             </Link>
 
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors min-h-[44px] flex-shrink-0"
+            >
+              <Sparkles className="w-4 h-4" />
+              Settings
+            </Link>
+
               {/* Auth state */}
               {status === 'authenticated' && currentUser ? (
                 <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-border bg-card/60 min-h-[44px] flex-shrink-0">

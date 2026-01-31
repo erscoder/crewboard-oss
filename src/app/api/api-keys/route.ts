@@ -5,9 +5,10 @@ import { ApiProvider } from '@prisma/client'
 import { authOptions } from '@/auth'
 import {
   deleteApiKey,
-  listApiKeysForUser,
+  getApiKeyOverview,
   normalizeProvider,
   providerLabels,
+  revalidateApiKey,
   upsertApiKey,
 } from '@/lib/api-keys'
 
@@ -21,11 +22,11 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const keys = await listApiKeysForUser(session.user.id)
+  const overview = await getApiKeyOverview(session.user.id)
 
   return NextResponse.json({
     providers: PROVIDERS,
-    keys,
+    overview,
     labels: providerLabels,
   })
 }
@@ -49,6 +50,30 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || 'Failed to save API key' },
+      { status: 500 },
+    )
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = await request.json().catch(() => ({}))
+  const provider = normalizeProvider(body?.provider)
+
+  if (!provider) {
+    return NextResponse.json({ error: 'provider is required' }, { status: 400 })
+  }
+
+  try {
+    const result = await revalidateApiKey(session.user.id, provider)
+    return NextResponse.json({ key: result, label: providerLabels[provider] })
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || 'Failed to revalidate API key' },
       { status: 500 },
     )
   }
