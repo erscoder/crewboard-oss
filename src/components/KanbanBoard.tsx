@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Archive, ListTodo, PlayCircle, Eye, CheckCircle2, ChevronDown, ChevronUp } from 'lucide-react'
 import TaskCard from './TaskCard'
-import { moveTask, updateTaskAssignee } from '@/app/actions'
+import { moveTask, updateTaskAssignee, updateTaskDetails } from '@/app/actions'
 import TaskDetails from './TaskDetails'
 
 type TaskStatus = 'BACKLOG' | 'TODO' | 'IN_PROGRESS' | 'REVIEW' | 'DONE'
@@ -92,6 +92,29 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
     )
 
     await updateTaskAssignee(taskId, assigneeId)
+  }
+
+  const handleUpdateTaskDetails = async (
+    taskId: string,
+    payload: { title: string; description?: string }
+  ) => {
+    setTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              title: payload.title,
+              description: payload.description,
+            }
+          : task
+      )
+    )
+
+    if (selectedTask?.id === taskId) {
+      setSelectedTask((prev) => (prev ? { ...prev, ...payload } : prev))
+    }
+
+    await updateTaskDetails(taskId, payload)
   }
 
   useEffect(() => {
@@ -239,6 +262,9 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
           currentUserId={currentUserId}
           onStatusChange={(status) => handleStatusChange(selectedTask.id, status)}
           onAssigneeChange={(assigneeId) => handleAssigneeChange(selectedTask.id, assigneeId)}
+          onUpdate={(title, description) =>
+            handleUpdateTaskDetails(selectedTask.id, { title, description })
+          }
           onClose={() => setSelectedTask(null)} 
         />
       )}

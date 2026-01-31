@@ -219,6 +219,36 @@ export async function updateTaskAssignee(taskId: string, assigneeId?: string | n
   return updatedTask
 }
 
+export async function updateTaskDetails(
+  taskId: string,
+  data: { title: string; description?: string | null }
+) {
+  const trimmedTitle = data.title.trim()
+  const trimmedDescription = data.description?.trim() ?? null
+
+  if (!trimmedTitle) throw new Error('Title is required')
+
+  const updatedTask = await prisma.task.update({
+    where: { id: taskId },
+    data: {
+      title: trimmedTitle,
+      description: trimmedDescription,
+    },
+    include: { assignee: true, project: true, attachments: true },
+  })
+
+  await prisma.activity.create({
+    data: {
+      type: 'updated',
+      message: 'Task details updated',
+      taskId,
+    },
+  })
+
+  revalidatePath('/')
+  return updatedTask
+}
+
 // Seed initial data if empty
 export async function seedData() {
   const userCount = await prisma.user.count()

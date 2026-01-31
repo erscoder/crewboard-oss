@@ -22,6 +22,7 @@ type TaskDetailsProps = {
   onClose: () => void
   onStatusChange: (status: TaskStatus) => void
   onAssigneeChange: (assigneeId: string | null) => void | Promise<void>
+  onUpdate: (title: string, description: string) => void | Promise<void>
 }
 
 export default function TaskDetails({
@@ -31,14 +32,32 @@ export default function TaskDetails({
   onClose,
   onStatusChange,
   onAssigneeChange,
+  onUpdate,
 }: TaskDetailsProps) {
   const [selectedAssignee, setSelectedAssignee] = useState(task.assignee?.id ?? '')
   const [isChangingAssignee, startTransition] = useTransition()
+  const [isSaving, startSaveTransition] = useTransition()
+  const [isEditing, setIsEditing] = useState(false)
+  const [titleDraft, setTitleDraft] = useState(task.title ?? '')
+  const [descriptionDraft, setDescriptionDraft] = useState(task.description ?? '')
   const statusSelectRef = useRef<HTMLSelectElement>(null)
+  const titleInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setSelectedAssignee(task.assignee?.id ?? '')
   }, [task.assignee?.id, task.id])
+
+  useEffect(() => {
+    setTitleDraft(task.title ?? '')
+    setDescriptionDraft(task.description ?? '')
+    setIsEditing(false)
+  }, [task.description, task.id, task.title])
+
+  useEffect(() => {
+    if (isEditing) {
+      titleInputRef.current?.focus()
+    }
+  }, [isEditing])
 
   const handleAssigneeChange = (value: string) => {
     setSelectedAssignee(value)
@@ -46,6 +65,28 @@ export default function TaskDetails({
       Promise.resolve(onAssigneeChange(value || null)).catch((error) =>
         console.error('Failed to update assignee', error)
       )
+    })
+  }
+
+  const handleStartEditing = () => {
+    if (isEditing) return
+    setTitleDraft(task.title ?? '')
+    setDescriptionDraft(task.description ?? '')
+    setIsEditing(true)
+  }
+
+  const handleCancel = () => {
+    setTitleDraft(task.title ?? '')
+    setDescriptionDraft(task.description ?? '')
+    setIsEditing(false)
+  }
+
+  const handleSave = () => {
+    const nextTitle = titleDraft.trim()
+    startSaveTransition(() => {
+      Promise.resolve(onUpdate(nextTitle, descriptionDraft ?? ''))
+        .then(() => setIsEditing(false))
+        .catch((error) => console.error('Failed to update task', error))
     })
   }
 
@@ -63,9 +104,21 @@ export default function TaskDetails({
             <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">
               Task Detail
             </p>
-            <h3 className="text-xl font-semibold leading-tight flex items-center gap-3">
-              {task.title}
-            </h3>
+            {isEditing ? (
+              <input
+                ref={titleInputRef}
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-semibold leading-tight focus:border-primary focus:outline-none"
+              />
+            ) : (
+              <h3
+                className="text-xl font-semibold leading-tight flex items-center gap-3 cursor-text hover:text-primary transition-colors"
+                onClick={handleStartEditing}
+              >
+                {task.title}
+              </h3>
+            )}
             {task.project && (
               <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">
                 <FolderKanban className="w-3.5 h-3.5" />
@@ -122,14 +175,30 @@ export default function TaskDetails({
               </select>
             </div>
           </div>
-          {task.description && (
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
-                Description
-              </p>
-              <p className="text-sm leading-relaxed text-foreground/90">{task.description}</p>
-            </div>
-          )}
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              Description
+            </p>
+            {isEditing ? (
+              <textarea
+                value={descriptionDraft}
+                onChange={(e) => setDescriptionDraft(e.target.value)}
+                rows={4}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm leading-relaxed focus:border-primary focus:outline-none"
+              />
+            ) : (
+              <div
+                className="rounded-lg border border-transparent px-2 py-1 text-sm leading-relaxed text-foreground/90 hover:border-border cursor-text"
+                onClick={handleStartEditing}
+              >
+                {task.description?.trim() ? (
+                  <p>{task.description}</p>
+                ) : (
+                  <p className="text-muted-foreground">Añade una descripción</p>
+                )}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <InfoRow
@@ -192,6 +261,26 @@ export default function TaskDetails({
               </div>
             )}
           </div>
+
+          {isEditing && (
+            <div className="flex justify-end gap-3 pt-2 border-t border-border">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-card-hover transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!titleDraft.trim() || isSaving}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed hover:bg-primary/90"
+              >
+                {isSaving ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          )}
 
           {/* Comments Section */}
           <div className="pt-4 border-t border-border">
