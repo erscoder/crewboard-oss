@@ -7,6 +7,8 @@ import { ApiKeyStatus, ApiProvider } from '@prisma/client'
 import { prisma } from './prisma'
 import { decryptString, encryptString } from './crypto'
 
+export const SUPPORTED_API_PROVIDERS: ApiProvider[] = ['ANTHROPIC', 'OPENAI']
+
 export type ApiKeySummary = {
   provider: ApiProvider
   status: ApiKeyStatus
@@ -15,9 +17,21 @@ export type ApiKeySummary = {
   errorMessage: string | null
 }
 
+export type ApiKeySummaryDTO = Omit<ApiKeySummary, 'lastCheckedAt'> & {
+  lastCheckedAt: string | null
+}
+
 export type ResolvedApiKey =
   | { apiKey: string; source: 'user' | 'platform'; provider: ApiProvider }
   | { apiKey: null; source: 'missing'; provider: ApiProvider }
+
+export type ApiKeyOverview = {
+  provider: ApiProvider
+  label: string
+  userKey: ApiKeySummaryDTO | null
+  platformKey: { available: boolean; last4: string | null }
+  inUse: ResolvedApiKey['source']
+}
 
 export const providerLabels: Record<ApiProvider, string> = {
   OPENAI: 'OpenAI',
@@ -29,6 +43,11 @@ export function normalizeProvider(provider: string | ApiProvider): ApiProvider |
   if (value === 'OPENAI') return 'OPENAI'
   if (value === 'ANTHROPIC' || value === 'CLAUDE') return 'ANTHROPIC'
   return null
+}
+
+export function getPlatformApiKey(provider: ApiProvider): string | null {
+  const envVar = provider === 'OPENAI' ? 'OPENAI_API_KEY' : 'ANTHROPIC_API_KEY'
+  return process.env[envVar] || null
 }
 
 async function validateOpenAIKey(apiKey: string): Promise<{ status: ApiKeyStatus; errorMessage?: string }> {
@@ -94,8 +113,8 @@ export async function upsertApiKey(userId: string, provider: ApiProvider, apiKey
 }
 
 export async function deleteApiKey(userId: string, provider: ApiProvider): Promise<void> {
-  await prisma.apiKey.delete({
-    where: { userId_provider: { userId, provider } },
+  await prisma.apiKey.deleteMany({
+    where: { userId, provider },
   })
 }
 
@@ -137,10 +156,74 @@ export async function resolveApiKey(provider: ApiProvider, userId?: string): Pro
     }
   }
 
-  const fallbackEnv = provider === 'OPENAI' ? process.env.OPENAI_API_KEY : process.env.ANTHROPIC_API_KEY
+  const fallbackEnv = getPlatformApiKey(provider)
   if (fallbackEnv) {
     return { apiKey: fallbackEnv, source: 'platform', provider }
   }
 
   return { apiKey: null, source: 'missing', provider }
+}
+
+function serializeSummary(summary: ApiKeySummary): ApiKeySummaryDTO {
+  return {
+    ...summary,
+    lastCheckedAt: summary.lastCheckedAt ? summary.lastCheckedAt.toISOString() : null,
+  }
+}
+
+export async function revalidateApiKey(userId: string, provider: ApiProvider): Promise<ApiKeySummary> {
+  const record = await prisma.apiKey.findUnique({
+    where: { userId_provider: { userId, provider } },
+  })
+
+  if (!record) {
+    throw new Error('No API key found to validate')
+  }
+
+  const apiKey = decryptString(record.encryptedKey)
+  const validation = await validateApiKey(provider, apiKey)
+
+  const updated = await prisma.apiKey.update({
+    where: { id: record.id },
+    data: {
+      status: validation.status,
+      lastCheckedAt: new Date(),
+      errorMessage: validation.errorMessage,
+    },
+  })
+
+  return {
+    provider: updated.provider,
+    status: updated.status,
+    last4: updated.last4,
+    lastCheckedAt: updated.lastCheckedAt,
+    errorMessage: updated.errorMessage,
+  }
+}
+
+export async function getApiKeyOverview(userId: string): Promise<ApiKeyOverview[]> {
+  const summaries = await listApiKeysForUser(userId)
+  const summaryMap = new Map<ApiProvider, ApiKeySummary>()
+  summaries.forEach((summary) => summaryMap.set(summary.provider, summary))
+
+  const results: ApiKeyOverview[] = []
+
+  for (const provider of SUPPORTED_API_PROVIDERS) {
+    const platformKey = getPlatformApiKey(provider)
+    const resolved = await resolveApiKey(provider, userId)
+    const summary = summaryMap.get(provider)
+
+    results.push({
+      provider,
+      label: providerLabels[provider],
+      userKey: summary ? serializeSummary(summary) : null,
+      platformKey: {
+        available: Boolean(platformKey),
+        last4: platformKey ? platformKey.slice(-4) : null,
+      },
+      inUse: resolved.source,
+    })
+  }
+
+  return results
 }
