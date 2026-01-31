@@ -3,6 +3,9 @@
 import { prisma } from '@/lib/prisma'
 import { createProjectFolder, getProjectFolders } from '@/lib/projects'
 import { revalidatePath } from 'next/cache'
+import { upsertSlackChannel } from '@/lib/slack'
+import { assertProjectLimit } from '@/lib/subscriptions'
+import { getAuthSession } from '@/auth'
 
 // Random colors for projects
 const PROJECT_COLORS = [
@@ -23,6 +26,19 @@ function getRandomColor(): string {
 function revalidateProjects() {
   revalidatePath('/projects')
   revalidatePath('/')
+}
+
+async function getActorUserId() {
+  const session = await getAuthSession().catch(() => null)
+  if (session?.user?.id) return session.user.id
+
+  const fallback = await prisma.user.findFirst({
+    where: { isBot: false },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  return fallback?.id ?? null
 }
 
 /**
@@ -50,7 +66,12 @@ export async function syncProjects() {
 
   revalidateProjects()
   return prisma.project.findMany({
-    include: { _count: { select: { tasks: true } } },
+    include: {
+      _count: { select: { tasks: true } },
+      githubRepo: true,
+      slackChannel: true,
+      slackWorkspace: true,
+    },
     orderBy: { name: 'asc' },
   })
 }
@@ -59,6 +80,8 @@ export async function syncProjects() {
  * Create a new project (folder + DB entry)
  */
 export async function createProject(data: { name: string; description?: string; color?: string }) {
+  await assertProjectLimit(await getActorUserId())
+
   // Create folder with README and git init
   const folder = createProjectFolder(data.name, data.description)
 
@@ -101,4 +124,57 @@ export async function deleteProject(id: string) {
 
   await prisma.project.delete({ where: { id } })
   revalidateProjects()
+}
+
+export async function linkProjectSlackChannel(params: {
+  projectId: string
+  workspaceId: string
+  channelId: string
+  channelName?: string
+}) {
+  const { projectId, workspaceId, channelId, channelName } = params
+  const channel = await upsertSlackChannel(workspaceId, channelId, channelName)
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      slackWorkspaceId: workspaceId,
+      slackChannelId: channel.id,
+    },
+  })
+
+  revalidateProjects()
+  return channel
+}
+
+export async function toggleProjectSlackNotifications(projectId: string, enabled: boolean) {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { notifySlackOnDone: enabled },
+  })
+
+  revalidateProjects()
+}
+
+export async function disconnectSlackWorkspace(workspaceId?: string) {
+  const workspace = workspaceId
+    ? await prisma.slackWorkspace.findUnique({ where: { id: workspaceId } })
+    : await prisma.slackWorkspace.findFirst({ orderBy: { createdAt: 'desc' } })
+
+  if (!workspace) return
+
+  await prisma.project.updateMany({
+    where: { slackWorkspaceId: workspace.id },
+    data: {
+      slackWorkspaceId: null,
+      slackChannelId: null,
+      notifySlackOnDone: false,
+    },
+  })
+
+  await prisma.slackChannel.deleteMany({ where: { workspaceId: workspace.id } })
+  await prisma.slackWorkspace.delete({ where: { id: workspace.id } })
+
+  revalidateProjects()
+  revalidatePath('/')
 }

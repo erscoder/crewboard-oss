@@ -47,7 +47,7 @@ codex --approval-mode full-auto "task description here"
 
 - **Frontend:** React, Next.js 14+, TypeScript, Tailwind CSS
 - **Backend:** Node.js, NestJS, Express, tRPC
-- **Database:** PostgreSQL, Prisma, Redis
+- **Database:** PostgreSQL, Prisma, Redis, MongoDB
 - **Testing:** Jest, Playwright, Vitest
 - **Infra:** Docker, Vercel, GitHub Actions
 

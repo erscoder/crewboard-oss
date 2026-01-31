@@ -102,7 +102,7 @@ export default function TaskDetails({
                   }`}
                 >
                   <span className="font-medium">{status.replace('_', ' ')}</span>
-                  <StatusBadge status={status} />
+                  <StatusBadge status={status as TaskStatus} />
                 </button>
               ))}
             </div>

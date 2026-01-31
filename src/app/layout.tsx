@@ -1,23 +1,29 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { Providers } from '@/components/Providers'
+import { getAuthSession } from '@/auth'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'MoltBoard',
-  description: 'Task management for Moltbot',
+  title: 'CreawBoard',
+  description: 'CreawBoard - AI Task management',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const session = await getAuthSession()
+
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} min-h-screen`}>
-        {children}
+        <Providers session={session}>
+          {children}
+        </Providers>
       </body>
     </html>
   )

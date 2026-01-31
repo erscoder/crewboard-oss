@@ -4,11 +4,13 @@ import StatsBar from '@/components/StatsBar'
 import Header from '@/components/Header'
 import ActivityPanel from '@/components/ActivityPanel'
 import { Suspense } from 'react'
+import { redirect } from 'next/navigation'
+import { getAuthSession } from '@/auth'
 
 async function getInitialData() {
   const [tasks, projects, users, botStatus] = await Promise.all([
     prisma.task.findMany({
-      include: { project: true, assignee: true, attachments: true },
+      include: { project: { include: { githubRepo: true } }, assignee: true, attachments: true },
       orderBy: [{ status: 'asc' }, { order: 'asc' }],
     }),
     prisma.project.findMany(),
@@ -53,11 +55,20 @@ async function getActivities() {
 }
 
 export default async function Home() {
+  const session = await getAuthSession()
+  
+  if (!session) {
+    redirect('/api/auth/signin')
+  }
+
   const [{ tasks, projects, users, botStatus }, stats, activities] = await Promise.all([
     getInitialData(),
     getStats(),
     getActivities(),
   ])
+
+  const currentUserId =
+    session?.user?.id || users.find((u) => !u.isBot)?.id || users[0]?.id || ''
 
   return (
     <main className="min-h-screen flex flex-col">
@@ -73,7 +84,7 @@ export default async function Home() {
             <KanbanBoard 
               initialTasks={tasks}
               users={users}
-              currentUserId={users.find(u => !u.isBot)?.id || users[0]?.id || ''}
+              currentUserId={currentUserId}
             />
           </Suspense>
         </div>

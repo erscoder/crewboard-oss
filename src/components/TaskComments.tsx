@@ -5,6 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Bell, BellOff, MessageSquare, Reply, Send, Trash2 } from 'lucide-react'
 import { createComment, deleteComment, getComments } from '@/app/comments/actions'
 import UserAvatar from './UserAvatar'
+import ConfirmDialog from './ConfirmDialog'
 
 type User = {
   id: string
@@ -34,6 +35,8 @@ export default function TaskComments({ taskId, users, currentUserId }: TaskComme
   const [replyContent, setReplyContent] = useState('')
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   // Check notification permission on mount
   useEffect(() => {
@@ -114,12 +117,18 @@ export default function TaskComments({ taskId, users, currentUserId }: TaskComme
     })
   }
 
-  const handleDelete = (commentId: string) => {
-    if (!confirm('Delete this comment?')) return
+  const handleDeleteClick = (commentId: string) => {
+    setDeleteTargetId(commentId)
+  }
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteTargetId) return
+    setDeleting(true)
     startTransition(async () => {
-      await deleteComment(commentId)
+      await deleteComment(deleteTargetId)
       await loadComments()
+      setDeleteTargetId(null)
+      setDeleting(false)
     })
   }
 
@@ -187,7 +196,7 @@ export default function TaskComments({ taskId, users, currentUserId }: TaskComme
             onReplyClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
             onReplyChange={setReplyContent}
             onReplySubmit={() => handleReply(comment.id)}
-            onDelete={() => handleDelete(comment.id)}
+            onDelete={() => handleDeleteClick(comment.id)}
             isPending={isPending}
           />
         ))}
@@ -198,6 +207,20 @@ export default function TaskComments({ taskId, users, currentUserId }: TaskComme
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTargetId && (
+        <ConfirmDialog
+          title="Delete Comment"
+          message="Are you sure you want to delete this comment?"
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleting}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTargetId(null)}
+        />
+      )}
     </div>
   )
 }

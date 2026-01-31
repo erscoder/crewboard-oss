@@ -15,8 +15,9 @@ const config: Config = {
         card: 'hsl(222, 47%, 11%)',
         'card-hover': 'hsl(222, 47%, 14%)',
         border: 'hsl(217, 33%, 17%)',
-        primary: 'hsl(142, 71%, 45%)',
-        'primary-foreground': 'hsl(144, 61%, 20%)',
+        primary: 'hsl(193, 98%, 35%)', /* #028db3 */
+        'primary-foreground': 'hsl(193, 80%, 15%)',
+        secondary: 'hsl(336, 66.20%, 61.80%)', /* #ff69b4 */
         muted: 'hsl(217, 33%, 17%)',
         'muted-foreground': 'hsl(215, 20%, 65%)',
         destructive: 'hsl(0, 84%, 60%)',

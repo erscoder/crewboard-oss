@@ -4,6 +4,9 @@ import { useMemo, useState, useTransition } from 'react'
 import { Check, Pencil, Plus, Trash2, X, Zap } from 'lucide-react'
 import { createPerson, deletePerson, updatePerson } from '@/app/people/actions'
 import UserAvatar from './UserAvatar'
+import ConfirmDialog from './ConfirmDialog'
+import UpgradeModal from './UpgradeModal'
+import { PlanId, getPlanById } from '@/lib/plans'
 
 type Person = {
   id: string
@@ -22,18 +25,27 @@ type AgentProfile = {
 
 const emptyForm = { name: '', avatar: '', isBot: false, agentSkill: '' }
 
-export default function PeopleManager({ 
+export default function PeopleManager({
   initialPeople,
   agentProfiles = [],
-}: { 
+  planId = 'free',
+}: {
   initialPeople: Person[]
   agentProfiles?: AgentProfile[]
+  planId?: PlanId
 }) {
   const [people, setPeople] = useState<Person[]>(initialPeople)
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const [deleteTarget, setDeleteTarget] = useState<Person | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+
+  const plan = getPlanById(planId)
+  const agentLimit = plan.limits.agentsPerProject ?? Infinity
+  const limitReached = Number.isFinite(agentLimit) && people.length >= agentLimit
 
   const sortedPeople = useMemo(
     () => [...people].sort((a, b) => a.name.localeCompare(b.name)),
@@ -52,27 +64,35 @@ export default function PeopleManager({
       setError('Name is required')
       return
     }
+    if (!editingId && limitReached) {
+      setShowUpgradeModal(true)
+      return
+    }
 
     setError(null)
     startTransition(async () => {
-      if (editingId) {
-        const updated = await updatePerson(editingId, {
-          name: form.name,
-          avatar: form.avatar || undefined,
-          isBot: form.isBot,
-          agentSkill: form.agentSkill || undefined,
-        })
-        setPeople((prev) => prev.map((p) => (p.id === editingId ? updated : p)))
-      } else {
-        const created = await createPerson({
-          name: form.name,
-          avatar: form.avatar || undefined,
-          isBot: form.isBot,
-          agentSkill: form.agentSkill || undefined,
-        })
-        setPeople((prev) => [...prev, created])
+      try {
+        if (editingId) {
+          const updated = await updatePerson(editingId, {
+            name: form.name,
+            avatar: form.avatar || undefined,
+            isBot: form.isBot,
+            agentSkill: form.agentSkill || undefined,
+          })
+          setPeople((prev) => prev.map((p) => (p.id === editingId ? updated : p)))
+        } else {
+          const created = await createPerson({
+            name: form.name,
+            avatar: form.avatar || undefined,
+            isBot: form.isBot,
+            agentSkill: form.agentSkill || undefined,
+          })
+          setPeople((prev) => [...prev, created])
+        }
+        resetForm()
+      } catch (err: any) {
+        setError(err.message || 'Unable to save person')
       }
-      resetForm()
     })
   }
 
@@ -86,12 +106,19 @@ export default function PeopleManager({
     })
   }
 
-  const handleDelete = (id: string) => {
-    if (!confirm('Delete this person? Their tasks will be unassigned.')) return
+  const handleDeleteClick = (person: Person) => {
+    setDeleteTarget(person)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     startTransition(async () => {
-      await deletePerson(id)
-      setPeople((prev) => prev.filter((p) => p.id !== id))
-      if (editingId === id) resetForm()
+      await deletePerson(deleteTarget.id)
+      setPeople((prev) => prev.filter((p) => p.id !== deleteTarget.id))
+      if (editingId === deleteTarget.id) resetForm()
+      setDeleteTarget(null)
+      setDeleting(false)
     })
   }
 
@@ -106,6 +133,9 @@ export default function PeopleManager({
             <h2 className="text-xl font-semibold">
               {editingId ? 'Update collaborator' : 'Invite a new collaborator'}
             </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Plan: {plan.name} — {people.length}/{Number.isFinite(agentLimit) ? agentLimit : '∞'} agents
+            </p>
           </div>
           {editingId && (
             <button
@@ -185,7 +215,7 @@ export default function PeopleManager({
           <div className="md:col-span-3 flex justify-end">
             <button
               type="submit"
-              disabled={isPending}
+              disabled={isPending || limitReached}
               className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
             >
               {isPending ? (
@@ -203,6 +233,12 @@ export default function PeopleManager({
               )}
             </button>
           </div>
+          {limitReached && (
+            <div className="md:col-span-3 text-xs text-muted-foreground flex items-center gap-2">
+              <Zap className="w-3 h-3 text-primary" />
+              Agent limit reached. Upgrade to Pro or Team for more seats.
+            </div>
+          )}
         </form>
       </section>
 
@@ -228,11 +264,15 @@ export default function PeopleManager({
                     {person.isBot ? (
                       person.agentSkill ? (
                         <span className="flex items-center gap-1">
-                          {agentProfiles.find(p => p.id === person.agentSkill)?.icon || '🤖'}
-                          {agentProfiles.find(p => p.id === person.agentSkill)?.name || person.agentSkill}
+                          {agentProfiles.find((p) => p.id === person.agentSkill)?.icon || '🤖'}
+                          {agentProfiles.find((p) => p.id === person.agentSkill)?.name || person.agentSkill}
                         </span>
-                      ) : 'Agent (no role)'
-                    ) : 'Human collaborator'}
+                      ) : (
+                        'Agent (no role)'
+                      )
+                    ) : (
+                      'Human collaborator'
+                    )}
                   </p>
                 </div>
               </div>
@@ -254,7 +294,7 @@ export default function PeopleManager({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleDelete(person.id)}
+                  onClick={() => handleDeleteClick(person)}
                   className="inline-flex items-center gap-1 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -271,8 +311,29 @@ export default function PeopleManager({
           )}
         </div>
       </section>
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Person"
+          message={`Delete "${deleteTarget.name}"? Their tasks will be unassigned.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          variant="danger"
+          loading={deleting}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Upgrade Modal */}
+      {showUpgradeModal && (
+        <UpgradeModal
+          currentPlanId={planId}
+          limitType="agents"
+          onClose={() => setShowUpgradeModal(false)}
+        />
+      )}
     </div>
   )
 }
-
-// Avatar rendering now shared via UserAvatar component

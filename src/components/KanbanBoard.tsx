@@ -104,17 +104,20 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
     <div className="flex flex-col h-full">
       <DragDropContext onDragEnd={onDragEnd}>
         {/* Main Kanban Board */}
-        <div className="grid grid-cols-4 gap-6 flex-1 min-h-0">
+        <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:gap-5 md:pb-3 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:snap-none">
           {COLUMNS.map((column) => {
             const columnTasks = getTasksByStatus(column.id)
             const Icon = column.icon
             
             return (
-              <div key={column.id} className="flex flex-col min-h-0">
+              <div
+                key={column.id}
+                className="flex flex-col min-h-0 w-[260px] flex-shrink-0 snap-start md:w-[320px] lg:w-auto lg:flex-shrink"
+              >
                 {/* Column Header */}
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-4 md:mb-5">
                   <Icon className={`w-5 h-5 ${column.color}`} />
-                  <h2 className="font-semibold">{column.title}</h2>
+                  <h2 className="font-semibold text-sm md:text-base">{column.title}</h2>
                   <span className="ml-auto px-2 py-0.5 rounded-full bg-card text-xs text-muted-foreground">
                     {columnTasks.length}
                   </span>
@@ -126,7 +129,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
                     <div
                       ref={provided.innerRef}
                       {...provided.droppableProps}
-                      className={`flex-1 rounded-xl p-3 transition-colors overflow-y-auto ${
+                      className={`flex-1 rounded-xl p-3 md:p-4 transition-colors overflow-y-auto ${
                         snapshot.isDraggingOver 
                           ? 'bg-primary/5 border-2 border-dashed border-primary/30' 
                           : 'bg-card/30 border border-border'

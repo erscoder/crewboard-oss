@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ComponentType } from 'react'
+import { useEffect, useMemo, useState, type ComponentType } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -40,7 +40,13 @@ const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
 }
 
 export default function ActivityPanel({ activities }: { activities: ActivityItem[] }) {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    // Default open on desktop, collapsed on tablets for more Kanban space
+    setIsOpen(window.innerWidth >= 1280)
+  }, [])
 
   const items = useMemo(
     () =>
@@ -62,13 +68,14 @@ export default function ActivityPanel({ activities }: { activities: ActivityItem
   return (
     <aside
       className={`relative hidden md:block border-l border-border bg-card/70 backdrop-blur-sm transition-all duration-300 overflow-hidden ${
-        isOpen ? 'w-80' : 'w-12'
+        isOpen ? 'w-72 lg:w-80' : 'w-12'
       }`}
     >
       <button
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={isOpen ? 'Ocultar panel de actividad' : 'Mostrar panel de actividad'}
-        className="absolute -left-3 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-card hover:bg-card-hover transition-colors"
+        aria-expanded={isOpen}
+        className="absolute -left-3 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card hover:bg-card-hover transition-colors"
       >
         {isOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>

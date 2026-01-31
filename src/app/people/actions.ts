@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { assertAgentLimit } from '@/lib/subscriptions'
+import { getAuthSession } from '@/auth'
 
 type PersonPayload = {
   name: string
@@ -15,7 +17,22 @@ function revalidatePeople() {
   revalidatePath('/')
 }
 
+async function getActorUserId() {
+  const session = await getAuthSession().catch(() => null)
+  if (session?.user?.id) return session.user.id
+
+  const fallback = await prisma.user.findFirst({
+    where: { isBot: false },
+    select: { id: true },
+    orderBy: { createdAt: 'asc' },
+  })
+
+  return fallback?.id ?? null
+}
+
 export async function createPerson(data: PersonPayload) {
+  await assertAgentLimit(await getActorUserId())
+
   const person = await prisma.user.create({
     data: {
       name: data.name.trim(),

@@ -1,14 +1,24 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { ArrowLeft, Users } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 import PeopleManager from '@/components/PeopleManager'
 import { getAgentProfiles } from '@/lib/skills'
+import { getAuthSession } from '@/auth'
+import { getPlanById } from '@/lib/plans'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PeoplePage() {
+  const session = await getAuthSession()
+  
+  if (!session) {
+    redirect('/api/auth/signin')
+  }
+
   const people = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
   const profiles = getAgentProfiles()
+  const plan = getPlanById(session?.user?.planId ?? 'free')
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
@@ -26,6 +36,12 @@ export default async function PeoplePage() {
               </p>
             </div>
           </div>
+          <div className="hidden sm:flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plan</span>
+            <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              {plan.name}
+            </span>
+          </div>
 
           <Link
             href="/"
@@ -36,7 +52,7 @@ export default async function PeoplePage() {
           </Link>
         </header>
 
-        <PeopleManager initialPeople={people} agentProfiles={profiles} />
+        <PeopleManager initialPeople={people} agentProfiles={profiles} planId={plan.id} />
       </div>
     </main>
   )

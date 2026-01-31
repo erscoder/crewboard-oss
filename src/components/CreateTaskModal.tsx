@@ -229,14 +229,14 @@ export default function CreateTaskModal({ projects, users, onClose }: CreateTask
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 rounded-xl bg-background border border-border hover:bg-card-hover transition-colors font-medium"
+              className="flex-1 py-3 rounded-xl btn btn-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!title.trim() || !description.trim() || loading}
-              className="flex-1 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              className="flex-1 py-3 rounded-xl btn btn-primary"
             >
               {loading || isRefreshing ? 'Creating...' : 'Create Task'}
             </button>

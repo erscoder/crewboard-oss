@@ -2,6 +2,37 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { sendTaskDoneNotification } from '@/lib/slack'
+import { runAgent, getAgentByName } from '@/lib/agents'
+
+/**
+ * Trigger agent run if task is assigned to a bot and in TODO status
+ */
+async function triggerAgentIfNeeded(taskId: string, assigneeId?: string | null, status?: string) {
+  if (!assigneeId || status !== 'TODO') return
+  
+  try {
+    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } })
+    if (!assignee?.isBot) return
+    
+    const agent = await getAgentByName(assignee.name)
+    if (!agent) {
+      console.log(`[agent-trigger] No agent profile for: ${assignee.name}`)
+      return
+    }
+    
+    console.log(`[agent-trigger] Starting ${agent.name} on task ${taskId}`)
+    
+    // Run async - don't block the response
+    runAgent(agent.id, taskId).then(result => {
+      console.log(`[agent-trigger] ${agent.name} finished: ${result.status}`)
+    }).catch(err => {
+      console.error(`[agent-trigger] ${agent.name} failed:`, err.message)
+    })
+  } catch (error) {
+    console.error('[agent-trigger] Error:', error)
+  }
+}
 
 type AttachmentInput = {
   url: string
@@ -52,6 +83,9 @@ export async function createTask(data: {
     },
   })
 
+  // Auto-trigger agent if assigned to bot and status is TODO
+  triggerAgentIfNeeded(task.id, data.assigneeId, data.status ?? 'BACKLOG')
+
   revalidatePath('/')
   return task
 }
@@ -78,9 +112,18 @@ export async function moveTask(
     updates.completedAt = new Date()
   }
 
-  await prisma.task.update({
+  const updatedTask = await prisma.task.update({
     where: { id: taskId },
     data: updates,
+    include: {
+      project: {
+        include: {
+          slackChannel: { include: { workspace: true } },
+          slackWorkspace: true,
+        },
+      },
+      assignee: true,
+    },
   })
 
   // Log activity
@@ -95,6 +138,24 @@ export async function moveTask(
       taskId,
     },
   })
+
+  // Auto-trigger agent if moved to TODO and assigned to bot
+  if (newStatus === 'TODO' && task.status !== 'TODO') {
+    triggerAgentIfNeeded(taskId, task.assigneeId, newStatus)
+  }
+
+  if (newStatus === 'DONE' && updatedTask?.project?.notifySlackOnDone) {
+    const channelId = updatedTask.project.slackChannel?.channelId
+    const workspaceId = updatedTask.project.slackWorkspaceId
+
+    sendTaskDoneNotification(taskId, {
+      slackChannel: channelId ?? undefined,
+      workspaceId: workspaceId ?? undefined,
+      channelName: updatedTask.project.slackChannel?.name,
+    }).catch((err) => {
+      console.error('Slack notification failed', err)
+    })
+  }
 
   revalidatePath('/')
 }

@@ -7,6 +7,7 @@ export type UserAvatarProps = {
   user: {
     name: string
     avatar?: string | null
+    image?: string | null
     isBot?: boolean
   }
   size?: number
@@ -20,6 +21,7 @@ export const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f59e
 export default function UserAvatar({ user, size = 44, className = '', showBadge = true }: UserAvatarProps) {
   const badgeSize = Math.max(12, Math.round(size * 0.45))
   const iconSize = Math.max(10, Math.round(badgeSize * 0.55))
+  const avatarSrc = user.avatar || user.image
 
   return (
     <div
@@ -27,10 +29,10 @@ export default function UserAvatar({ user, size = 44, className = '', showBadge 
       style={{ width: size, height: size }}
       title={user.name}
     >
-      {user.avatar ? (
+      {avatarSrc ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={user.avatar}
+          src={avatarSrc}
           alt={user.name}
           className="w-full h-full rounded-full object-cover border border-border bg-card"
         />
