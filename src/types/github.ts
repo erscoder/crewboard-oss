@@ -5,6 +5,7 @@ export type GitHubRepo = {
   html_url: string
   private: boolean
   owner: { login: string }
+  language?: string | null
 }
 
 export type GitHubAccessToken = {

@@ -1,8 +1,10 @@
 import { redirect } from 'next/navigation'
-import { Shield, Sparkles } from 'lucide-react'
+import { Shield, Sparkles, Github, MessageSquare } from 'lucide-react'
 
 import { getAuthSession } from '@/auth'
 import ApiKeyManager from '@/components/ApiKeyManager'
+import GitHubConnectionManager from '@/components/GitHubConnectionManager'
+import SlackConnectionManager from '@/components/SlackConnectionManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +25,7 @@ export default async function SettingsPage() {
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Crewboard</p>
               <h1 className="text-2xl font-bold">Settings</h1>
-              <p className="text-sm text-muted-foreground">Manage your API keys and platform defaults.</p>
+              <p className="text-sm text-muted-foreground">Manage integrations, API keys, and connections.</p>
             </div>
           </div>
 
@@ -35,6 +37,43 @@ export default async function SettingsPage() {
           </a>
         </header>
 
+        {/* GitHub Connection */}
+        <section className="rounded-2xl border border-border bg-card/60 p-6 space-y-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-[#24292f]/10 border border-[#24292f]/30 flex items-center justify-center">
+              <Github className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Source Control</p>
+              <h2 className="text-xl font-semibold">GitHub</h2>
+              <p className="text-sm text-muted-foreground">
+                Connect your GitHub account to create projects from repositories and track commits.
+              </p>
+            </div>
+          </div>
+
+          <GitHubConnectionManager />
+        </section>
+
+        {/* Slack Connection */}
+        <section className="rounded-2xl border border-border bg-card/60 p-6 space-y-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-[#4A154B]/10 border border-[#4A154B]/30 flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-[#4A154B]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">Notifications</p>
+              <h2 className="text-xl font-semibold">Slack</h2>
+              <p className="text-sm text-muted-foreground">
+                Connect Slack workspaces to receive task notifications and updates in your channels.
+              </p>
+            </div>
+          </div>
+
+          <SlackConnectionManager />
+        </section>
+
+        {/* AI Providers (BYOK) */}
         <section className="rounded-2xl border border-border bg-card/60 p-6 space-y-4 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 rounded-2xl bg-secondary/10 border border-secondary/30 flex items-center justify-center">
@@ -43,7 +82,9 @@ export default async function SettingsPage() {
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">AI Providers</p>
               <h2 className="text-xl font-semibold">Bring your own key</h2>
-              <p className="text-sm text-muted-foreground">Store encrypted API keys for OpenAI and Claude. We will validate keys on save and fall back to platform defaults if a user key is not present.</p>
+              <p className="text-sm text-muted-foreground">
+                Store encrypted API keys for OpenAI and Claude. Keys are validated on save and fall back to platform defaults if not present.
+              </p>
             </div>
           </div>
 
@@ -53,4 +94,3 @@ export default async function SettingsPage() {
     </main>
   )
 }
-

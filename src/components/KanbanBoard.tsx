@@ -111,7 +111,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
     )
 
     if (selectedTask?.id === taskId) {
-      setSelectedTask((prev) => (prev ? { ...prev, ...payload } : prev))
+      setSelectedTask((prev: any) => (prev ? { ...prev, ...payload } : prev))
     }
 
     await updateTaskDetails(taskId, payload)
