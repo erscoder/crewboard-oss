@@ -59,18 +59,33 @@ export async function createTask(data: {
         size: file.size ?? null,
       })) ?? []
 
-  const task = await prisma.task.create({
-    data: {
-      title: data.title,
-      description: data.description,
-      projectId: data.projectId,
-      assigneeId: data.assigneeId,
-      status: data.status ?? 'BACKLOG',
-      attachments: attachmentsPayload.length
-        ? { create: attachmentsPayload }
-        : undefined,
-    },
-    include: { attachments: true, project: true, assignee: true },
+  // Generate shortId in a transaction to avoid race conditions
+  const task = await prisma.$transaction(async (tx) => {
+    // Get and increment project counter
+    const project = await tx.project.update({
+      where: { id: data.projectId },
+      data: { taskCounter: { increment: 1 } },
+    })
+
+    // Generate prefix if not set
+    const prefix = project.prefix || project.name.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 3) || 'TSK'
+    const shortId = `${prefix}-${project.taskCounter}`
+
+    // Create task with shortId
+    return tx.task.create({
+      data: {
+        title: data.title,
+        description: data.description,
+        projectId: data.projectId,
+        assigneeId: data.assigneeId,
+        status: data.status ?? 'BACKLOG',
+        shortId,
+        attachments: attachmentsPayload.length
+          ? { create: attachmentsPayload }
+          : undefined,
+      },
+      include: { attachments: true, project: true, assignee: true },
+    })
   })
 
   // Log activity

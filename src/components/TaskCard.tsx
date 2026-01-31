@@ -66,7 +66,14 @@ export default function TaskCard({ task, onSelect }: TaskCardProps) {
       )}
 
       {/* Title */}
-      <h3 className="font-medium text-sm md:text-base mb-2 line-clamp-2">{task.title}</h3>
+      <div className="flex items-start gap-2 mb-2">
+        {task.shortId && (
+          <span className="shrink-0 text-xs font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+            {task.shortId}
+          </span>
+        )}
+        <h3 className="font-medium text-sm md:text-base line-clamp-2">{task.title}</h3>
+      </div>
 
       {/* Description Preview */}
       {task.description && (

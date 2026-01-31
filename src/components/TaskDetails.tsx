@@ -112,12 +112,19 @@ export default function TaskDetails({
                 className="w-full rounded-lg border border-border bg-background px-3 py-2 text-lg font-semibold leading-tight focus:border-primary focus:outline-none"
               />
             ) : (
-              <h3
-                className="text-xl font-semibold leading-tight flex items-center gap-3 cursor-text hover:text-primary transition-colors"
-                onClick={handleStartEditing}
-              >
-                {task.title}
-              </h3>
+              <div className="flex items-start gap-3">
+                {task.shortId && (
+                  <span className="shrink-0 text-sm font-mono text-muted-foreground bg-muted/50 px-2 py-1 rounded mt-0.5">
+                    {task.shortId}
+                  </span>
+                )}
+                <h3
+                  className="text-xl font-semibold leading-tight cursor-text hover:text-primary transition-colors"
+                  onClick={handleStartEditing}
+                >
+                  {task.title}
+                </h3>
+              </div>
             )}
             {task.project && (
               <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs">

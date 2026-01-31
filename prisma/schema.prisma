@@ -59,10 +59,12 @@ model User {
 }
 
 model Project {
-  id        String   @id @default(cuid())
-  name      String
-  color     String   @default("#6366f1")
-  tasks     Task[]
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#6366f1")
+  prefix      String?  // 3-letter prefix for task IDs (e.g., "CRE")
+  taskCounter Int      @default(0) // Sequential counter for task IDs
+  tasks       Task[]
   githubRepo GitHubRepo?
   slackWorkspace   SlackWorkspace? @relation(fields: [slackWorkspaceId], references: [id], onDelete: SetNull)
   slackWorkspaceId String?
@@ -75,6 +77,7 @@ model Project {
 
 model Task {
   id          String     @id @default(cuid())
+  shortId     String?    @unique // Human-readable ID (e.g., "CRE-1")
   title       String
   description String?
   status      TaskStatus @default(BACKLOG)
