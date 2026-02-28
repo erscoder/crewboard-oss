@@ -2,11 +2,10 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { WebClient } from '@slack/web-api'
 import { prisma } from '@/lib/prisma'
-import { getAuthSession } from '@/auth'
 import { getSlackRedirectUri } from '@/lib/slack'
 
 export async function GET(request: Request) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const storedState = cookieStore.get('slack_oauth_state')?.value
   const redirectTarget = cookieStore.get('slack_oauth_redirect')?.value || '/projects'
 
@@ -34,7 +33,7 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${redirectTarget}?slack=error`)
     }
 
-    const session = await getAuthSession()
+    const session = { user: { id: 'oss-user', name: 'User' } }
 
     await prisma.slackWorkspace.upsert({
       where: { teamId: token.team.id },

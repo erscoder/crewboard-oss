@@ -5,8 +5,6 @@ import { Check, Pencil, Plus, Trash2, X, Zap } from 'lucide-react'
 import { createPerson, deletePerson, updatePerson } from '@/app/people/actions'
 import UserAvatar from './UserAvatar'
 import ConfirmDialog from './ConfirmDialog'
-import UpgradeModal from './UpgradeModal'
-import { PlanId, getPlanById } from '@/lib/plans'
 
 type Person = {
   id: string
@@ -28,11 +26,9 @@ const emptyForm = { name: '', avatar: '', isBot: false, agentSkill: '' }
 export default function PeopleManager({
   initialPeople,
   agentProfiles = [],
-  planId = 'free',
 }: {
   initialPeople: Person[]
   agentProfiles?: AgentProfile[]
-  planId?: PlanId
 }) {
   const [people, setPeople] = useState<Person[]>(initialPeople)
   const [form, setForm] = useState(emptyForm)
@@ -41,10 +37,8 @@ export default function PeopleManager({
   const [isPending, startTransition] = useTransition()
   const [deleteTarget, setDeleteTarget] = useState<Person | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  const plan = getPlanById(planId)
-  const agentLimit = plan.limits.agentsPerProject ?? Infinity
+  const agentLimit = Infinity
   const limitReached = Number.isFinite(agentLimit) && people.length >= agentLimit
 
   const sortedPeople = useMemo(
@@ -65,7 +59,6 @@ export default function PeopleManager({
       return
     }
     if (!editingId && limitReached) {
-      setShowUpgradeModal(true)
       return
     }
 
@@ -134,7 +127,7 @@ export default function PeopleManager({
               {editingId ? 'Update collaborator' : 'Invite a new collaborator'}
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Plan: {plan.name} — {people.length}/{Number.isFinite(agentLimit) ? agentLimit : '∞'} agents
+              {people.length}/{Number.isFinite(agentLimit) ? agentLimit : '∞'} agents
             </p>
           </div>
           {editingId && (
@@ -326,14 +319,7 @@ export default function PeopleManager({
         />
       )}
 
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <UpgradeModal
-          currentPlanId={planId}
-          limitType="agents"
-          onClose={() => setShowUpgradeModal(false)}
-        />
-      )}
+
     </div>
   )
 }

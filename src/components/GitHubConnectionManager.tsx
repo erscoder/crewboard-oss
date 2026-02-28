@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { signIn } from 'next-auth/react'
 import {
   Github,
   Loader2,
@@ -174,7 +173,6 @@ export default function GitHubConnectionManager() {
 
         {!status?.connected && (
           <button
-            onClick={() => signIn('github', { callbackUrl: '/settings' })}
             className="inline-flex items-center gap-2 rounded-xl bg-[#24292f] px-4 py-2 text-sm font-medium text-white hover:bg-[#24292f]/90 transition-colors"
           >
             <Github className="w-4 h-4" />

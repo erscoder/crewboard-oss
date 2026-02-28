@@ -1,28 +1,21 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { ArrowLeft, FolderKanban } from 'lucide-react'
 import { getProjectFolders } from '@/lib/projects'
 import ProjectsManager from '@/components/ProjectsManager'
 import { syncProjects } from './actions'
 import { fetchSlackChannels, getSlackWorkspace } from '@/lib/slack'
-import { getAuthSession } from '@/auth'
-import { getPlanById } from '@/lib/plans'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
-  const session = await getAuthSession()
+  const session = { user: { id: 'oss-user', name: 'User' } }
   
-  if (!session) {
-    redirect('/api/auth/signin')
-  }
 
   // Sync filesystem with DB
   const projects = await syncProjects()
   const folders = await getProjectFolders()
   const slackWorkspace = await getSlackWorkspace()
   const slackChannels = slackWorkspace ? await fetchSlackChannels(slackWorkspace.id) : []
-  const plan = getPlanById(session?.user?.planId ?? 'free')
 
   // Map folder info to projects
   const projectsWithFolders = projects.map(project => {
@@ -56,9 +49,7 @@ export default async function ProjectsPage() {
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
-            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plan</span>
             <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
-              {plan.name}
             </span>
           </div>
 
@@ -75,7 +66,6 @@ export default async function ProjectsPage() {
           initialProjects={projectsWithFolders} 
           slackWorkspace={slackWorkspace}
           slackChannels={slackChannels}
-          planId={plan.id}
         />
       </div>
     </main>

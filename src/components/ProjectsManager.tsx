@@ -5,8 +5,6 @@ import { Check, FolderGit2, FolderOpen, Plus, X, Slack } from 'lucide-react'
 import { createProject, disconnectSlackWorkspace, linkProjectSlackChannel, toggleProjectSlackNotifications } from '@/app/projects/actions'
 import GitHubRepoSelector from './GitHubRepoSelector'
 import type { GitHubRepo } from '@/types/github'
-import { PlanId, getPlanById } from '@/lib/plans'
-import UpgradeModal from './UpgradeModal'
 
 type Project = {
   id: string
@@ -58,12 +56,10 @@ export default function ProjectsManager({
   initialProjects,
   slackWorkspace,
   slackChannels,
-  planId = 'free',
 }: {
   initialProjects: Project[]
   slackWorkspace: SlackWorkspace | null
   slackChannels: SlackChannelOption[]
-  planId?: PlanId
 }) {
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [connectedWorkspace, setConnectedWorkspace] = useState<SlackWorkspace | null>(
@@ -75,10 +71,8 @@ export default function ProjectsManager({
   const [isPending, startTransition] = useTransition()
   const [isSlackPending, startSlackTransition] = useTransition()
   const [linkingProjectId, setLinkingProjectId] = useState<string | null>(null)
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
-  const plan = getPlanById(planId)
-  const projectLimit = plan.limits.projects ?? Infinity
+  const projectLimit = Infinity
   const projectLimitReached = Number.isFinite(projectLimit) && projects.length >= projectLimit
 
   const resetForm = () => {
@@ -93,7 +87,6 @@ export default function ProjectsManager({
       return
     }
     if (projectLimitReached) {
-      setShowUpgradeModal(true)
       return
     }
 
@@ -240,7 +233,7 @@ export default function ProjectsManager({
             Creates a folder with README.md and initializes git.
           </p>
           <p className="text-xs text-muted-foreground mt-1">
-            Plan: {plan.name} — {projects.length}/{Number.isFinite(projectLimit) ? projectLimit : '∞'} projects
+            {projects.length}/{Number.isFinite(projectLimit) ? projectLimit : '∞'} projects
           </p>
         </div>
 
@@ -310,7 +303,6 @@ export default function ProjectsManager({
           {projectLimitReached && (
             <p className="text-xs text-muted-foreground flex items-center gap-2">
               <Check className="w-4 h-4 text-primary" />
-              Project limit reached for this plan. Upgrade to Pro or Team for more projects.
             </p>
           )}
         </form>
@@ -479,14 +471,7 @@ export default function ProjectsManager({
         </div>
       )}
 
-      {/* Upgrade Modal */}
-      {showUpgradeModal && (
-        <UpgradeModal
-          currentPlanId={planId}
-          limitType="projects"
-          onClose={() => setShowUpgradeModal(false)}
-        />
-      )}
+
     </div>
   )
 }

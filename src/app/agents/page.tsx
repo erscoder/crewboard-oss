@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation'
 import { Bot, Plus, Zap, Clock, DollarSign } from 'lucide-react'
 
-import { getAuthSession } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import AgentCard from '@/components/AgentCard'
 import CreateAgentButton from '@/components/CreateAgentButton'
@@ -9,10 +7,7 @@ import CreateAgentButton from '@/components/CreateAgentButton'
 export const dynamic = 'force-dynamic'
 
 export default async function AgentsPage() {
-  const session = await getAuthSession()
-  if (!session) {
-    redirect('/api/auth/signin')
-  }
+  const session = { user: { id: 'oss-user', name: 'User' } }
 
   const agents = await prisma.agentProfile.findMany({
     include: {

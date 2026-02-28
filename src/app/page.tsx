@@ -4,8 +4,6 @@ import StatsBar from '@/components/StatsBar'
 import Header from '@/components/Header'
 import ActivityPanel from '@/components/ActivityPanel'
 import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
-import { getAuthSession } from '@/auth'
 
 async function getInitialData() {
   const [tasks, projects, users, botStatus] = await Promise.all([
@@ -55,11 +53,7 @@ async function getActivities() {
 }
 
 export default async function Home() {
-  const session = await getAuthSession()
-  
-  if (!session) {
-    redirect('/api/auth/signin')
-  }
+  const session = { user: { id: 'oss-user', name: 'User' } }
 
   const [{ tasks, projects, users, botStatus }, stats, activities] = await Promise.all([
     getInitialData(),

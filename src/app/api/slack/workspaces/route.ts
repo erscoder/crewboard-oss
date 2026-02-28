@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const workspaces = await prisma.slackWorkspace.findMany({
     where: {
-      installedById: session.user.id,
+      installedById: 'oss-user',
     },
     select: {
       id: true,
@@ -28,10 +22,6 @@ export async function GET() {
 }
 
 export async function DELETE(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const { searchParams } = new URL(req.url)
   const workspaceId = searchParams.get('id')
@@ -44,7 +34,7 @@ export async function DELETE(req: Request) {
   const workspace = await prisma.slackWorkspace.findFirst({
     where: {
       id: workspaceId,
-      installedById: session.user.id,
+      installedById: 'oss-user',
     },
   })
 

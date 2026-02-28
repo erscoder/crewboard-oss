@@ -4,8 +4,6 @@ import { prisma } from '@/lib/prisma'
 import { createProjectFolder, getProjectFolders } from '@/lib/projects'
 import { revalidatePath } from 'next/cache'
 import { upsertSlackChannel } from '@/lib/slack'
-import { assertProjectLimit } from '@/lib/subscriptions'
-import { getAuthSession } from '@/auth'
 
 // Random colors for projects
 const PROJECT_COLORS = [
@@ -29,8 +27,8 @@ function revalidateProjects() {
 }
 
 async function getActorUserId() {
-  const session = await getAuthSession().catch(() => null)
-  if (session?.user?.id) return session.user.id
+  const session = { user: { id: 'oss-user', name: 'User' } }
+  if (session?.user?.id) return 'oss-user'
 
   const fallback = await prisma.user.findFirst({
     where: { isBot: false },
@@ -80,7 +78,6 @@ export async function syncProjects() {
  * Create a new project (folder + DB entry)
  */
 export async function createProject(data: { name: string; description?: string; color?: string }) {
-  await assertProjectLimit(await getActorUserId())
 
   // Create folder with README and git init
   const folder = createProjectFolder(data.name, data.description)

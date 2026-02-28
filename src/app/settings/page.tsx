@@ -1,7 +1,5 @@
-import { redirect } from 'next/navigation'
 import { Shield, Sparkles, Github, MessageSquare } from 'lucide-react'
 
-import { getAuthSession } from '@/auth'
 import ApiKeyManager from '@/components/ApiKeyManager'
 import GitHubConnectionManager from '@/components/GitHubConnectionManager'
 import SlackConnectionManager from '@/components/SlackConnectionManager'
@@ -9,10 +7,7 @@ import SlackConnectionManager from '@/components/SlackConnectionManager'
 export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
-  const session = await getAuthSession()
-  if (!session) {
-    redirect('/api/auth/signin')
-  }
+  const session = { user: { id: 'oss-user', name: 'User' } }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10">

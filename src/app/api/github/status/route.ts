@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/auth'
 import { prisma } from '@/lib/prisma'
 
 const GITHUB_API = 'https://api.github.com'
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
 
   const account = await prisma.account.findFirst({
     where: {
-      userId: session.user.id,
+      userId: 'oss-user',
       provider: 'github',
     },
   })

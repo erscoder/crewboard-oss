@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const state = crypto.randomBytes(16).toString('hex')
   const redirect = new URL(request.url).searchParams.get('redirect') || '/projects'
 
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   cookieStore.set('slack_oauth_state', state, { path: '/', maxAge: 10 * 60 })
   cookieStore.set('slack_oauth_redirect', redirect, { path: '/', maxAge: 10 * 60 })
 

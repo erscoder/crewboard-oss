@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { signIn, signOut, useSession } from 'next-auth/react'
 import {
   Rocket,
   Plus,
@@ -28,7 +27,6 @@ interface HeaderProps {
 }
 
 export default function Header({ projects, users, botStatus }: HeaderProps) {
-  const { data: session, status } = useSession()
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [selectedProject, setSelectedProject] = useState<string | null>(null)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -38,7 +36,7 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
     botStatus?.lastPing && 
     new Date(botStatus.lastPing).getTime() > Date.now() - 5 * 60 * 1000
 
-  const currentUser = session?.user
+  const currentUser = { name: 'User', image: null as string | null }
   const avatarUser = currentUser
     ? {
         name: currentUser.name || 'User',
@@ -175,7 +173,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false)
-                          signOut({ callbackUrl: '/' })
                         }}
                         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
                       >
@@ -187,7 +184,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                         <button
                           onClick={() => {
                             setIsUserMenuOpen(false)
-                            signIn('google', { callbackUrl: '/' })
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
                         >
@@ -197,7 +193,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                         <button
                           onClick={() => {
                             setIsUserMenuOpen(false)
-                            signIn('github', { callbackUrl: '/' })
                           }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
                         >
@@ -280,7 +275,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false)
-                    signOut({ callbackUrl: '/' })
                   }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
                 >
@@ -292,7 +286,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                   <button
                     onClick={() => {
                       setIsMobileMenuOpen(false)
-                      signIn('google', { callbackUrl: '/' })
                     }}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
                   >
@@ -302,7 +295,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                   <button
                     onClick={() => {
                       setIsMobileMenuOpen(false)
-                      signIn('github', { callbackUrl: '/' })
                     }}
                     className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
                   >
