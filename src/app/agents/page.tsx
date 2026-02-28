@@ -1,11 +1,11 @@
 import { Bot, Zap, Wifi, WifiOff } from 'lucide-react'
-import { createOpenClawClient } from '@/lib/openclaw-client'
+import { createOpenClawClient, type OpenClawAgent } from '@/lib/openclaw-client'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AgentsPage() {
   const client = createOpenClawClient()
-  let agents: Array<{ id: string; name: string; model?: string; workspace?: string }> = []
+  let agents: OpenClawAgent[] = []
   let connected = false
 
   try {

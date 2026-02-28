@@ -12,11 +12,11 @@ export async function GET() {
         const profile = await prisma.agentProfile.upsert({
           where: { name: agent.name },
           update: {
-            model: agent.model || 'unknown',
+            model: typeof agent.model === 'string' ? agent.model : (agent.model as any)?.primary || 'unknown',
           },
           create: {
             name: agent.name,
-            model: agent.model || 'unknown',
+            model: typeof agent.model === 'string' ? agent.model : (agent.model as any)?.primary || 'unknown',
             systemPrompt: `OpenClaw agent: ${agent.name}${agent.workspace ? ` (workspace: ${agent.workspace})` : ''}`,
             skills: [],
             tools: [],
