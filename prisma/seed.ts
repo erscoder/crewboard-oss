@@ -18,13 +18,9 @@ const LOCAL_SKILLS_DIR = path.join(__dirname, '..', 'skills')
 /**
  * Agent definitions for Mission Control
  */
+// Agents come from OpenClaw Gateway — only seed a default human user
 const agents = [
-  { name: 'Kike', isBot: false, agentSkill: null },
-  { name: 'Harvis', isBot: true, agentSkill: 'coordinator' },
-  { name: 'Codex', isBot: true, agentSkill: 'dev-engineer' },
-  { name: 'Peter Designer', isBot: true, agentSkill: 'ui-designer' },
-  { name: 'Marta Marketing', isBot: true, agentSkill: 'marketing-specialist' },
-  { name: 'Alex PM', isBot: true, agentSkill: 'product-manager' },
+  { name: 'User', isBot: false, agentSkill: null },
 ]
 
 /**

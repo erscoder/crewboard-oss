@@ -1,46 +1,21 @@
-import { Bot, Plus, Zap, Clock, DollarSign } from 'lucide-react'
-
-import { prisma } from '@/lib/prisma'
-import AgentCard from '@/components/AgentCard'
-import CreateAgentButton from '@/components/CreateAgentButton'
+import { Bot, Zap, Wifi, WifiOff } from 'lucide-react'
+import { createOpenClawClient } from '@/lib/openclaw-client'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AgentsPage() {
-  const session = { user: { id: 'oss-user', name: 'User' } }
+  const client = createOpenClawClient()
+  let agents: Array<{ id: string; name: string; model?: string; workspace?: string }> = []
+  let connected = false
 
-  const agents = await prisma.agentProfile.findMany({
-    include: {
-      _count: {
-        select: { runs: true },
-      },
-      runs: {
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          id: true,
-          status: true,
-          totalTokens: true,
-          cost: true,
-          createdAt: true,
-        },
-      },
-    },
-    orderBy: { name: 'asc' },
-  })
-
-  // Calculate stats
-  const totalRuns = agents.reduce((sum, a) => sum + a._count.runs, 0)
-  const activeAgents = agents.filter((a) => a.isActive).length
-
-  // Get aggregated stats
-  const stats = await prisma.agentRun.aggregate({
-    _sum: {
-      totalTokens: true,
-      cost: true,
-    },
-    _count: true,
-  })
+  try {
+    connected = await client.ping()
+    if (connected) {
+      agents = await client.getAgents()
+    }
+  } catch {
+    // Gateway not reachable
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10">
@@ -51,66 +26,100 @@ export default async function AgentsPage() {
               <Bot className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">Crewboard</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">CrewBoard</p>
               <h1 className="text-2xl font-bold">Agents</h1>
-              <p className="text-sm text-muted-foreground">Configure and manage your AI agents.</p>
+              <p className="text-sm text-muted-foreground">
+                {connected ? `Connected to OpenClaw · ${agents.length} agent(s)` : 'Not connected to OpenClaw Gateway'}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm">
+              {connected ? (
+                <><Wifi className="w-4 h-4 text-green-500" /><span className="text-green-500">Connected</span></>
+              ) : (
+                <><WifiOff className="w-4 h-4 text-red-500" /><span className="text-red-500">Disconnected</span></>
+              )}
+            </div>
             <a
               href="/"
               className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-card transition-colors"
             >
               Back to board
             </a>
-            <CreateAgentButton />
           </div>
         </header>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="rounded-2xl border border-border bg-card/60 p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Bot className="w-4 h-4" />
-              <span className="text-xs">Active Agents</span>
+              <span className="text-xs">Agents</span>
             </div>
-            <p className="text-2xl font-bold">{activeAgents}</p>
+            <p className="text-2xl font-bold">{agents.length}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card/60 p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <Zap className="w-4 h-4" />
-              <span className="text-xs">Total Runs</span>
+              <span className="text-xs">Gateway</span>
             </div>
-            <p className="text-2xl font-bold">{stats._count}</p>
+            <p className="text-2xl font-bold">{connected ? 'Online' : 'Offline'}</p>
           </div>
           <div className="rounded-2xl border border-border bg-card/60 p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Clock className="w-4 h-4" />
-              <span className="text-xs">Total Tokens</span>
+              <Bot className="w-4 h-4" />
+              <span className="text-xs">Source</span>
             </div>
-            <p className="text-2xl font-bold">{((stats._sum.totalTokens || 0) / 1000).toFixed(1)}K</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-card/60 p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <DollarSign className="w-4 h-4" />
-              <span className="text-xs">Total Cost</span>
-            </div>
-            <p className="text-2xl font-bold">${(stats._sum.cost || 0).toFixed(2)}</p>
+            <p className="text-2xl font-bold">OpenClaw</p>
           </div>
         </div>
 
         {/* Agent Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent) => (
-            <AgentCard key={agent.id} agent={agent} />
-          ))}
+          {agents.map((agent) => {
+            const model = typeof agent.model === 'string' 
+              ? agent.model 
+              : (agent.model as any)?.primary || 'unknown'
+            
+            return (
+              <div key={agent.id} className="rounded-2xl border border-border bg-card/60 p-6 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">{agent.name}</h3>
+                      <p className="text-xs text-muted-foreground">{agent.id}</p>
+                    </div>
+                  </div>
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                </div>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <p><span className="font-medium text-foreground">Model:</span> {model}</p>
+                  {agent.workspace && (
+                    <p><span className="font-medium text-foreground">Workspace:</span> {agent.workspace}</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
 
-          {agents.length === 0 && (
+          {!connected && (
+            <div className="col-span-full text-center py-12 text-muted-foreground">
+              <WifiOff className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>Cannot connect to OpenClaw Gateway</p>
+              <p className="text-sm mt-1">Set <code className="bg-card px-1.5 py-0.5 rounded text-xs">OPENCLAW_GATEWAY_URL</code> and <code className="bg-card px-1.5 py-0.5 rounded text-xs">OPENCLAW_GATEWAY_TOKEN</code> in your .env</p>
+            </div>
+          )}
+
+          {connected && agents.length === 0 && (
             <div className="col-span-full text-center py-12 text-muted-foreground">
               <Bot className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>No agents configured yet.</p>
-              <p className="text-sm">Create your first agent to get started.</p>
+              <p>No agents configured in OpenClaw</p>
+              <p className="text-sm mt-1">Add agents to your openclaw.json to see them here.</p>
             </div>
           )}
         </div>
