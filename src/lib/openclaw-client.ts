@@ -28,10 +28,12 @@ export interface OpenClawSessionStatus {
 export class OpenClawClient {
   private baseUrl: string
   private token: string
+  private configPath: string
 
-  constructor(baseUrl?: string, token?: string) {
+  constructor(baseUrl?: string, token?: string, configPath?: string) {
     this.baseUrl = baseUrl || process.env.OPENCLAW_GATEWAY_URL || 'http://localhost:18789'
     this.token = token || process.env.OPENCLAW_GATEWAY_TOKEN || ''
+    this.configPath = configPath || process.env.OPENCLAW_CONFIG_PATH || ''
   }
 
   private async fetch(path: string, options: RequestInit = {}): Promise<any> {
@@ -54,8 +56,29 @@ export class OpenClawClient {
     return response.json()
   }
 
+  /**
+   * Read openclaw.json config directly from filesystem.
+   * Falls back to gateway HTTP API if config path not set.
+   */
+  private async getConfig(): Promise<any> {
+    // Try reading config file directly (server-side only)
+    if (this.configPath || typeof process !== 'undefined') {
+      try {
+        const fs = await import('fs/promises')
+        const path = await import('path')
+        const configFile = this.configPath 
+          || path.join(process.env.HOME || '', '.openclaw', 'openclaw.json')
+        const raw = await fs.readFile(configFile, 'utf-8')
+        return JSON.parse(raw)
+      } catch {
+        // Fall through to HTTP
+      }
+    }
+    return this.fetch('/api/config')
+  }
+
   async getAgents(): Promise<OpenClawAgent[]> {
-    const data = await this.fetch('/api/config')
+    const data = await this.getConfig()
     const agentsList = data?.agents?.list || data?.agents || []
     return Array.isArray(agentsList) ? agentsList : []
   }
@@ -90,7 +113,7 @@ export class OpenClawClient {
 
   async ping(): Promise<boolean> {
     try {
-      await this.fetch('/api/config')
+      await this.getConfig()
       return true
     } catch {
       return false
