@@ -176,3 +176,20 @@ describe('edge cases', () => {
     expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions', expect.anything())
   })
 })
+
+describe('ping', () => {
+  it('returns true when gateway is reachable', async () => {
+    mockFetch.mockReturnValueOnce(mockOk({ agents: [] }))
+    expect(await new OpenClawClient().ping()).toBe(true)
+  })
+
+  it('returns false when gateway is unreachable', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+    expect(await new OpenClawClient().ping()).toBe(false)
+  })
+
+  it('returns false on HTTP error', async () => {
+    mockFetch.mockReturnValueOnce(mockErr(500, 'Server Error'))
+    expect(await new OpenClawClient().ping()).toBe(false)
+  })
+})
