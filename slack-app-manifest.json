@@ -1,0 +1,34 @@
+{
+  "display_information": {
+    "name": "Crewboard",
+    "description": "AI Task Management - Get notifications when tasks are completed",
+    "background_color": "#8B5CF6"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Crewboard",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "http://localhost:3020/api/auth/callback/slack",
+      "http://localhost:3020/api/slack/callback"
+    ],
+    "scopes": {
+      "bot": [
+        "chat:write",
+        "chat:write.public",
+        "channels:read",
+        "groups:read",
+        "im:read",
+        "mpim:read"
+      ]
+    }
+  },
+  "settings": {
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "crewboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3020",
+    "build": "next build",
+    "build:cf": "npx @cloudflare/next-on-pages build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.72.1",
+    "@auth/prisma-adapter": "^2.11.1",
+    "@hello-pangea/dnd": "^17.0.0",
+    "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
+    "@prisma/client": "^5.22.0",
+    "@slack/web-api": "^7.13.0",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.460.0",
+    "next": "^16.1.6",
+    "next-auth": "^4.24.7",
+    "openai": "^6.17.0",
+    "react": "^18",
+    "react-avatar": "^5.0.4",
+    "react-dom": "^18",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.23",
+    "eslint": "^8",
+    "eslint-config-next": "^16.1.6",
+    "postcss": "^8",
+    "prisma": "^5.22.0",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "ts-node --transpile-only prisma/seed.ts"
+  }
+}

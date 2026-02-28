@@ -1,0 +1,83 @@
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { ArrowLeft, FolderKanban } from 'lucide-react'
+import { getProjectFolders } from '@/lib/projects'
+import ProjectsManager from '@/components/ProjectsManager'
+import { syncProjects } from './actions'
+import { fetchSlackChannels, getSlackWorkspace } from '@/lib/slack'
+import { getAuthSession } from '@/auth'
+import { getPlanById } from '@/lib/plans'
+
+export const dynamic = 'force-dynamic'
+
+export default async function ProjectsPage() {
+  const session = await getAuthSession()
+  
+  if (!session) {
+    redirect('/api/auth/signin')
+  }
+
+  // Sync filesystem with DB
+  const projects = await syncProjects()
+  const folders = await getProjectFolders()
+  const slackWorkspace = await getSlackWorkspace()
+  const slackChannels = slackWorkspace ? await fetchSlackChannels(slackWorkspace.id) : []
+  const plan = getPlanById(session?.user?.planId ?? 'free')
+
+  // Map folder info to projects
+  const projectsWithFolders = projects.map(project => {
+    const folder = folders.find(f => f.name.toLowerCase() === project.name.toLowerCase())
+    return {
+      ...project,
+      hasFolder: !!folder,
+      hasGit: folder?.hasGit ?? false,
+      path: folder?.path,
+      githubRepo: project.githubRepo,
+      slackChannel: project.slackChannel,
+      slackWorkspaceId: project.slackWorkspaceId,
+      notifySlackOnDone: project.notifySlackOnDone,
+    }
+  })
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="mx-auto max-w-5xl px-6 py-8 space-y-8">
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="h-11 w-11 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <FolderKanban className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Workspace</p>
+              <h1 className="text-2xl font-bold">Projects</h1>
+              <p className="text-sm text-muted-foreground">
+                Manage projects. Each project has a folder in ~/clawd/projects/
+              </p>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2">
+            <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Plan</span>
+            <span className="rounded-lg bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">
+              {plan.name}
+            </span>
+          </div>
+
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-medium hover:bg-card transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to board
+          </Link>
+        </header>
+
+        <ProjectsManager 
+          initialProjects={projectsWithFolders} 
+          slackWorkspace={slackWorkspace}
+          slackChannels={slackChannels}
+          planId={plan.id}
+        />
+      </div>
+    </main>
+  )
+}

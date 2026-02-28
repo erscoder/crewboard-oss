@@ -1,0 +1,12 @@
+name = "mission-control"
+compatibility_date = "2025-01-30"
+pages_build_output_dir = ".vercel/output/static"
+functions = ".vercel/output/functions"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+SUPABASE_URL = ""
+SUPABASE_ANON_KEY = ""
+SUPABASE_SERVICE_ROLE_KEY = ""
+DATABASE_URL = ""
+DIRECT_DATABASE_URL = ""

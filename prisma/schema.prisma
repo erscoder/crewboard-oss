@@ -1,0 +1,341 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum SubscriptionStatus {
+  ON_TRIAL
+  ACTIVE
+  PAUSED
+  PAST_DUE
+  UNPAID
+  CANCELLED
+  EXPIRED
+}
+
+enum ApiProvider {
+  OPENAI
+  ANTHROPIC
+  GOOGLE
+}
+
+enum ApiKeyStatus {
+  PENDING
+  VALID
+  INVALID
+}
+
+model User {
+  id         String    @id @default(cuid())
+  name       String
+  email      String?   @unique
+  emailVerified DateTime?
+  avatar     String?
+  image      String?
+  isBot      Boolean   @default(false)
+  agentSkill String?   // Skill path for agent bots (e.g. "agent-browser", "coding-agent")
+  accounts   Account[]
+  sessions   Session[]
+  tasks      Task[]    @relation("AssignedTasks")
+  apiKeys    ApiKey[]
+  activities Activity[]
+  comments   Comment[]
+  slackWorkspaces SlackWorkspace[]
+  subscriptions Subscription[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  color       String   @default("#6366f1")
+  prefix      String?  // 3-letter prefix for task IDs (e.g., "CRE")
+  taskCounter Int      @default(0) // Sequential counter for task IDs
+  tasks       Task[]
+  githubRepo GitHubRepo?
+  slackWorkspace   SlackWorkspace? @relation(fields: [slackWorkspaceId], references: [id], onDelete: SetNull)
+  slackWorkspaceId String?
+  slackChannel     SlackChannel?   @relation(fields: [slackChannelId], references: [id], onDelete: SetNull)
+  slackChannelId   String?
+  notifySlackOnDone Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  shortId     String?    @unique // Human-readable ID (e.g., "CRE-1")
+  title       String
+  description String?
+  status      TaskStatus @default(BACKLOG)
+  order       Int        @default(0)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  assigneeId String?
+  assignee   User?   @relation("AssignedTasks", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  attachments Attachment[]
+  activities  Activity[]
+  comments    Comment[]
+  agentRuns   AgentRun[]
+
+  // For tracking work
+  startedAt   DateTime?
+  completedAt DateTime?
+  
+  // Slack integration
+  slackThreadTs String?  // Slack thread timestamp for bidirectional comments
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attachment {
+  id       String  @id @default(cuid())
+  filename String
+  url      String
+  size     Int?
+  mimeType String?
+
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+// Activity log for the feed
+model Activity {
+  id        String   @id @default(cuid())
+  type      String // created, moved, completed, deleted
+  message   String
+  taskId    String?
+  task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+}
+
+// Comments on tasks
+model Comment {
+  id        String    @id @default(cuid())
+  content   String
+  
+  taskId    String
+  task      Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  
+  authorId  String
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  
+  // Reply threading
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// Live status for Harvis
+model BotStatus {
+  id            String   @id @default("harvis")
+  isWorking     Boolean  @default(false)
+  currentTaskId String?
+  lastPing      DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// Agent profiles for AI agents (Harvis, Codex, etc.)
+model AgentProfile {
+  id           String   @id @default(cuid())
+  name         String   @unique // Codex, Harvis, Peter Designer
+  description  String?
+  model        String   // claude-opus-4-5, gpt5.1.codex, claude-sonnet-4-20250514
+  systemPrompt String   @db.Text
+  skills       String[] // ["coding-agent", "github"]
+  tools        String[] // ["exec", "read", "write", "edit"]
+  maxTokens    Int      @default(4096)
+  temperature  Float    @default(0.7)
+  isActive     Boolean  @default(true)
+  
+  runs         AgentRun[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Log of agent executions
+model AgentRun {
+  id           String         @id @default(cuid())
+  
+  agentId      String
+  agent        AgentProfile   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  taskId       String?
+  task         Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  
+  status       AgentRunStatus @default(QUEUED)
+  
+  input        String         @db.Text  // The prompt/context sent
+  output       String?        @db.Text  // The agent's response
+  
+  toolCalls    Json?          // Array of tool calls made
+  
+  inputTokens  Int?
+  outputTokens Int?
+  totalTokens  Int?
+  cost         Float?         // Estimated cost in USD
+  
+  error        String?        @db.Text
+  
+  startedAt    DateTime?
+  completedAt  DateTime?
+  
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider      ApiProvider
+  encryptedKey  String       @db.Text
+  last4         String?
+  status        ApiKeyStatus @default(PENDING)
+  lastCheckedAt DateTime?
+  errorMessage  String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([userId, provider])
+}
+
+model GitHubRepo {
+  id        String   @id @default(cuid())
+  repoId    String   // GitHub repository numeric ID as string to avoid overflow
+  name      String
+  fullName  String
+  htmlUrl   String
+  private   Boolean
+  owner     String
+
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SlackWorkspace {
+  id            String   @id @default(cuid())
+  teamId        String   @unique
+  teamName      String
+  accessToken   String   @db.Text
+  botUserId     String?
+  scope         String?
+  installedById String?
+  installedBy   User?    @relation(fields: [installedById], references: [id], onDelete: SetNull)
+  projects      Project[]
+  channels      SlackChannel[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model SlackChannel {
+  id          String   @id @default(cuid())
+  channelId   String
+  name        String
+  workspaceId String
+  workspace   SlackWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  projects    Project[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([workspaceId, channelId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Subscription {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId             String
+  status             SubscriptionStatus  @default(ACTIVE)
+  lemonSqueezyId     String              @unique
+  storeId            String?
+  orderId            String?
+  productId          String?
+  variantId          String?
+  customerId         String?
+  customerEmail      String?
+  renewsAt           DateTime?
+  endsAt             DateTime?
+  trialEndsAt        DateTime?
+  cancelledAt        DateTime?
+  cardBrand          String?
+  cardLastFour       String?
+  updatePaymentUrl   String?
+  customerPortalUrl  String?
+  testMode           Boolean             @default(false)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
