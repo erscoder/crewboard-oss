@@ -1,8 +1,9 @@
-import { Shield, Sparkles, Github, MessageSquare } from 'lucide-react'
+import { Shield, Sparkles, Github, MessageSquare, Zap } from 'lucide-react'
 
 import ApiKeyManager from '@/components/ApiKeyManager'
 import GitHubConnectionManager from '@/components/GitHubConnectionManager'
 import SlackConnectionManager from '@/components/SlackConnectionManager'
+import OpenClawConnectionManager from '@/components/OpenClawConnectionManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -66,6 +67,24 @@ export default async function SettingsPage() {
           </div>
 
           <SlackConnectionManager />
+        </section>
+
+        {/* OpenClaw Integration */}
+        <section className="rounded-2xl border border-border bg-card/60 p-6 space-y-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.25em] text-muted-foreground">AI Agents</p>
+              <h2 className="text-xl font-semibold">OpenClaw Integration</h2>
+              <p className="text-sm text-muted-foreground">
+                Connect to your OpenClaw Gateway to sync agents and run tasks automatically.
+              </p>
+            </div>
+          </div>
+
+          <OpenClawConnectionManager />
         </section>
 
         {/* AI Providers (BYOK) */}
