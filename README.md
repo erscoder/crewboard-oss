@@ -1,28 +1,41 @@
-# Mission Control 🚀
+# CrewBoard 🚀
 
-Task management dashboard for Clawdbot. A Kanban board where Kike creates tasks, agents pick them up, and everyone collaborates on projects.
+**AI Agent Task Management** — A Kanban board where humans create tasks and AI agents pick them up, execute them, and report back.
 
-## Features
+Think **JIRA meets autonomous AI agents.**
 
-- 📋 **Kanban Board** - Backlog → TODO → In Progress → Review → Done
-- 👥 **Multi-Agent** - Human + AI agents with specialized skills
-- 🎨 **Projects** - Auto-synced from Clawdbot workspace
-- 🧠 **Skills** - Agent capabilities synced on startup
-- 📊 **Stats Banner** - Weekly progress, completion rate
-- 🟢 **Live Indicator** - Shows when agents are working
-- 🔄 **Drag & Drop** - Move tasks between columns
+## ✨ Features
 
-## Quick Start
+- 📋 **Kanban Board** — Backlog → TODO → In Progress → Review → Done
+- 🤖 **Multi-Agent Support** — Human + AI agents with specialized skills
+- 🎨 **Project Sync** — Auto-synced from your workspace
+- 🧠 **Agent Skills** — Define what each agent knows how to do
+- 📊 **Stats Banner** — Weekly progress, completion rate
+- 🟢 **Live Indicator** — Shows when agents are actively working
+- 🔄 **Drag & Drop** — Move tasks between columns
+- 💬 **Slack Integration** — Assignment notifications + bidirectional comments
+- 🔑 **BYOK** — Bring Your Own API Key (OpenAI, Anthropic, Google/Gemini)
+- 📈 **Usage Dashboard** — Track token usage with limits and alerts
+
+## 🖥️ Screenshot
+
+> Coming soon
+
+## 🚀 Quick Start
 
 ```bash
-# Install dependencies
+# Clone
+git clone https://github.com/erscoder/crewboard.git
+cd crewboard
+
+# Install
 npm install
 
 # Setup database
 cp .env.example .env
-# Edit .env with your DATABASE_URL
+# Edit .env with your DATABASE_URL (PostgreSQL)
 
-# Push schema and seed data
+# Push schema and seed
 npm run db:push
 npm run db:seed
 
@@ -30,115 +43,35 @@ npm run db:seed
 npm run dev
 ```
 
-## Cloudflare Pages + Supabase Deploy
+## 🤖 How It Works
 
-1) **Dependencias**: `npm install --save-dev @cloudflare/next-on-pages` (añadido en `package.json`; ejecútalo si no está en `node_modules`).
-2) **Variables de entorno** (Cloudflare Pages y `.env`):
-   - `DATABASE_URL` → cadena del pooler de Supabase (puerto 6543) con `?pgbouncer=true&connection_limit=1&pool_timeout=30`
-   - `DIRECT_DATABASE_URL` → conexión directa (puerto 5432) para Prisma CLI/migraciones
-   - `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-3) **Build**: `npm run build:cf` genera `.vercel/output` usando `@cloudflare/next-on-pages`.
-4) **Cloudflare Pages**:
-   - Build command: `npm run build:cf`
-   - Output directory: `.vercel/output/static`
-   - Functions directory: `.vercel/output/functions`
-   - Config: `wrangler.toml` ya incluye `nodejs_compat` y placeholders en `[vars]`.
-5) **Prisma**: usa el pooler para runtime (`DATABASE_URL`) y la conexión directa para migraciones (`DIRECT_DATABASE_URL`) para evitar agotar conexiones del proyecto Supabase.
-
-## Agents & Skills
-
-Mission Control manages a team of AI agents, each with specialized skills.
-
-### 👥 Team
-
-| Agent | Skill | Role |
-|-------|-------|------|
-| **Kike** | - | Human. Creates tasks, reviews, approves. |
-| **Harvis** | `coordinator` | AI Coordinator. Manages tasks, communication, calendar. |
-| **Codex** | `dev-engineer` | Developer. Writes code, fixes bugs, runs tests. Uses Codex CLI. |
-| **Peter Designer** | `ui-designer` | UI/UX Designer. Creates interfaces, mockups, CSS/Tailwind. |
-| **Marta Marketing** | `marketing-specialist` | Marketer. Social media, content, email campaigns. |
-| **Alex PM** | `product-manager` | Product Manager. Roadmap, specs, prioritization. |
-
-### 🧠 How Skills Work
-
-Skills are stored in `skills/` and define what each agent knows how to do.
-
-```
-skills/
-├── dev-engineer/
-│   └── SKILL.md      # How Codex writes code
-├── ui-designer/
-│   └── SKILL.md      # How Peter creates designs
-├── marketing-specialist/
-│   └── SKILL.md      # How Marta runs campaigns
-├── product-manager/
-│   └── SKILL.md      # How Alex manages product
-├── copywriter/
-│   └── SKILL.md      # Conversion copywriting
-├── data-analyst/
-│   └── SKILL.md      # SQL, metrics, dashboards
-└── codex-delegation/
-    └── SKILL.md      # How to delegate to Codex CLI
-```
-
-### 🔄 Skill Sync
-
-On `npm run db:seed`:
-
-1. **Projects** are read from Clawdbot's `projects/` folder and created in the database
-2. **Agents** are created/updated with their skill assignments
-3. **Skills** are copied from `skills/` to Clawdbot's skills directory
-
-This means:
-- Add a new skill folder → run seed → Clawdbot picks it up
-- Edit a skill in this repo → run seed → changes sync to Clawdbot
-- Add a project folder → run seed → appears in Mission Control
-
-### 📝 Skill Format
-
-Each skill has a `SKILL.md` with:
-
-```markdown
-# Skill Name
-
-<description>One-line description for Clawdbot's skill index.</description>
-
-## Role
-What this agent does.
-
-## How You Work
-Step-by-step workflow.
-
-## Tools
-What tools/CLIs this agent uses.
-
-## Standards
-Quality guidelines and patterns.
-```
-
-## Task Workflow
+### Task Workflow
 
 ```
 BACKLOG → TODO → IN_PROGRESS → REVIEW → DONE
 ```
 
-1. **Kike creates task** → Goes to BACKLOG
-2. **Kike prioritizes** → Moves to TODO, assigns to agent
-3. **Agent starts work** → Moves to IN_PROGRESS
-4. **Agent finishes** → Moves to REVIEW
-5. **Kike reviews** → Approves to DONE
+1. **Human creates task** → Goes to BACKLOG
+2. **Human prioritizes** → Moves to TODO, assigns to agent
+3. **Agent starts work** → Moves to IN_PROGRESS automatically
+4. **Agent finishes** → Moves to REVIEW with summary comment
+5. **Human reviews** → Approves to DONE
 
-### Rules for Agents
+### Agent Skills
 
-- **Always** move task to IN_PROGRESS before starting
-- **Always** add a comment summarizing what was done
-- **Assign correctly**: code → Codex, design → Peter, marketing → Marta
-- **Ask if stuck**: Comment on task and assign to Kike
+Skills define what each agent can do. Drop a `SKILL.md` in the `skills/` folder:
 
-## API
+```
+skills/
+├── dev-engineer/SKILL.md       # Writes code, fixes bugs, runs tests
+├── ui-designer/SKILL.md        # Creates interfaces, CSS/Tailwind
+├── marketing-specialist/SKILL.md  # Social media, content, campaigns
+├── product-manager/SKILL.md    # Roadmap, specs, prioritization
+├── data-analyst/SKILL.md       # SQL, metrics, dashboards
+└── copywriter/SKILL.md         # Conversion copywriting
+```
 
-Agents interact via Prisma or server actions:
+### API for Agents
 
 ```typescript
 // Move task
@@ -151,26 +84,24 @@ await updateBotStatus(true, taskId)
 await addComment(taskId, userId, 'Completed the feature')
 ```
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- Prisma + PostgreSQL
-- @hello-pangea/dnd (drag & drop)
+- **Next.js 14** (App Router)
+- **TypeScript**
+- **Tailwind CSS**
+- **Prisma + PostgreSQL**
+- **@hello-pangea/dnd** (drag & drop)
 
-## Files
-
-| File | Purpose |
-|------|---------|
-| `prisma/seed.ts` | Seeds agents, projects, syncs skills |
-| `skills/` | Agent skill definitions |
-| `AGENTS.md` | Agent workflow guide |
-| `src/app/actions.ts` | Server actions for tasks |
-
-## Environment
+## 🔧 Environment
 
 ```bash
-DATABASE_URL=postgresql://user:pass@localhost:5432/mission_control
-CLAWDBOT_ROOT=/path/to/clawd  # Optional, auto-detected
+DATABASE_URL=postgresql://user:pass@localhost:5432/crewboard
 ```
+
+## 📄 License
+
+MIT
+
+## 🤝 Contributing
+
+PRs welcome! Check the issues tab for good first issues.
