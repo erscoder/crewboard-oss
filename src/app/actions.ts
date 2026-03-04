@@ -3,32 +3,66 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { sendTaskDoneNotification } from '@/lib/slack'
-import { runAgent, getAgentByName } from '@/lib/agents'
+import { createOpenClawClient } from '@/lib/openclaw-client'
+import { sendDiscordMessage } from '@/lib/discord'
+import { sendTelegramMessage } from '@/lib/telegram'
+import { CREWBOARD_SKILL } from '@/lib/crewboard-skill'
 
 /**
- * Trigger agent run if task is assigned to a bot and in TODO status
+ * Trigger agent run if task is assigned to a bot and moved to TODO.
+ * Delegates to the OpenClaw gateway via HTTP.
  */
-async function triggerAgentIfNeeded(taskId: string, assigneeId?: string | null, status?: string) {
+export async function triggerAgentIfNeeded(taskId: string, assigneeId?: string | null, status?: string) {
   if (!assigneeId || status !== 'TODO') return
-  
+
   try {
-    const assignee = await prisma.user.findUnique({ where: { id: assigneeId } })
-    if (!assignee?.isBot) return
-    
-    const agent = await getAgentByName(assignee.name)
-    if (!agent) {
-      console.log(`[agent-trigger] No agent profile for: ${assignee.name}`)
-      return
+    const [assignee, task] = await Promise.all([
+      prisma.user.findUnique({ where: { id: assigneeId } }),
+      prisma.task.findUnique({ where: { id: taskId } }),
+    ])
+
+    if (!assignee?.isBot || !task) return
+
+    const agentId = assignee.name.toLowerCase()
+    const taskBody = task.description
+      ? `Task: ${task.title}\n\n${task.description}`
+      : `Task: ${task.title}`
+    const message = `${taskBody}\n\n---\nYou have been assigned this task in Crewboard. Pick it up and start working on it immediately. If you need to break this into subtasks, create them in Crewboard and assign them to the appropriate agent.\n\n${CREWBOARD_SKILL}`
+
+    console.log(`[agent-trigger] Sending task "${task.title}" to OpenClaw agent: ${agentId}`)
+
+    const result = await createOpenClawClient().sendMessage(agentId, message)
+
+    if (result.ok) {
+      console.log(`[agent-trigger] Task sent to ${agentId} successfully`)
+    } else {
+      console.error(`[agent-trigger] Failed to send task to ${agentId}: ${result.error}`)
     }
-    
-    console.log(`[agent-trigger] Starting ${agent.name} on task ${taskId}`)
-    
-    // Run async - don't block the response
-    runAgent(agent.id, taskId).then(result => {
-      console.log(`[agent-trigger] ${agent.name} finished: ${result.status}`)
-    }).catch(err => {
-      console.error(`[agent-trigger] ${agent.name} failed:`, err.message)
-    })
+
+    // Send delivery notification independently
+    const appConfig = await prisma.appConfig.findUnique({ where: { id: 'global' } })
+    if (appConfig?.agentDeliveryEnabled && appConfig.agentDeliveryChannel && appConfig.agentDeliveryTo) {
+      const notification = `📋 New task for **${agentId}** on Crewboard\n\n**${task.title}**${task.description ? `\n${task.description}` : ''}\n\n_Please read the skill crewboard-oss/src/lib/crewboard-skill.ts to learn more about the Crewboard API._`
+
+      if (appConfig.agentDeliveryChannel === 'discord') {
+        const dr = await sendDiscordMessage(appConfig.agentDeliveryTo, notification)
+        if (!dr.ok) console.error(`[agent-trigger] Discord delivery failed: ${dr.error}`)
+        else console.log(`[agent-trigger] Discord notification sent to channel ${appConfig.agentDeliveryTo}`)
+      } else if (appConfig.agentDeliveryChannel === 'slack') {
+        const workspace = await prisma.slackWorkspace.findFirst()
+        if (workspace) {
+          const { WebClient } = await import('@slack/web-api')
+          const slack = new WebClient(workspace.accessToken)
+          await slack.chat.postMessage({ channel: appConfig.agentDeliveryTo, text: notification }).catch((e: any) => {
+            console.error(`[agent-trigger] Slack delivery failed: ${e.message}`)
+          })
+        }
+      } else if (appConfig.agentDeliveryChannel === 'telegram') {
+        const tr = await sendTelegramMessage(appConfig.agentDeliveryTo, notification)
+        if (!tr.ok) console.error(`[agent-trigger] Telegram delivery failed: ${tr.error}`)
+        else console.log(`[agent-trigger] Telegram notification sent to chat ${appConfig.agentDeliveryTo}`)
+      }
+    }
   } catch (error) {
     console.error('[agent-trigger] Error:', error)
   }
@@ -238,6 +272,11 @@ export async function updateTaskAssignee(taskId: string, assigneeId?: string | n
       userId: nextAssigneeId ?? undefined,
     },
   })
+
+  // Trigger agent if assigned to a bot and task is already in TODO
+  if (nextAssigneeId && updatedTask.status === 'TODO') {
+    triggerAgentIfNeeded(taskId, nextAssigneeId, 'TODO')
+  }
 
   // Send Slack notification if assigned and project has Slack configured
   if (nextAssigneeId && updatedTask.assignee && updatedTask.project?.slackChannel) {
