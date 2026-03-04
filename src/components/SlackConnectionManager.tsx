@@ -57,12 +57,21 @@ export default function SlackConnectionManager() {
   }
 
   const connectSlack = () => {
-    // Redirect to Slack OAuth with settings as return path
-    window.location.href = '/api/slack/authorize?redirect=/settings'
+    const popup = window.open('/api/slack/authorize?redirect=/oauth/success', 'slack-oauth', 'width=520,height=700')
+    const timer = setInterval(() => {
+      if (popup?.closed) { clearInterval(timer); fetchWorkspaces() }
+    }, 500)
   }
 
   useEffect(() => {
     fetchWorkspaces()
+    const handler = (e: MessageEvent) => {
+      if (e.origin === window.location.origin && e.data?.type === 'oauth-complete' && !e.data.error) {
+        fetchWorkspaces()
+      }
+    }
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
   }, [])
 
   if (loading) {

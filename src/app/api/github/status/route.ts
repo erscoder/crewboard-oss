@@ -7,7 +7,6 @@ export async function GET() {
 
   const account = await prisma.account.findFirst({
     where: {
-      userId: 'oss-user',
       provider: 'github',
     },
   })

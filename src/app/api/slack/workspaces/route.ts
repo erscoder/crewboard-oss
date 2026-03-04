@@ -4,9 +4,6 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
 
   const workspaces = await prisma.slackWorkspace.findMany({
-    where: {
-      installedById: 'oss-user',
-    },
     select: {
       id: true,
       teamId: true,
@@ -30,11 +27,9 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Missing workspace id' }, { status: 400 })
   }
 
-  // Only allow deleting own workspaces
   const workspace = await prisma.slackWorkspace.findFirst({
     where: {
       id: workspaceId,
-      installedById: 'oss-user',
     },
   })
 

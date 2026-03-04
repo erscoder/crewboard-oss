@@ -3,19 +3,15 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import {
-  Rocket,
   Plus,
-  Users,
+  Bot,
   FolderKanban,
   ChevronDown,
   Filter,
-  FolderGit2,
   Menu,
   X,
   Settings,
   BarChart3,
-  CreditCard,
-  LogOut,
 } from 'lucide-react'
 import CreateTaskModal from './CreateTaskModal'
 import UserAvatar from './UserAvatar'
@@ -53,16 +49,15 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
       Icon: FolderKanban,
     },
     {
-      href: '/people',
-      label: 'People',
-      Icon: Users,
+      href: '/agents',
+      label: 'Agents',
+      Icon: Bot,
     },
   ]
 
   const accountLinks = [
     { href: '/settings', label: 'Settings', Icon: Settings },
     { href: '/usage', label: 'Usage', Icon: BarChart3 },
-    { href: '/pricing', label: 'Pricing', Icon: CreditCard },
   ]
 
   return (
@@ -77,12 +72,12 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                 src="/logo.png"
                 width={80}
                 height={80}
-                alt="CreawBoard"
+                alt="CrewBoard"
                 className="w-10 h-10 md:w-12 md:h-12 object-contain"
               />
             </div>
             <div className="hidden sm:block">
-              <h1 className="text-lg md:text-xl font-bold leading-tight">CreawBoard</h1>
+              <h1 className="text-lg md:text-xl font-bold leading-tight">CrewBoard</h1>
               <p className="text-xs text-muted-foreground">AI Task management</p>
             </div>
           </div>
@@ -169,38 +164,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                       </Link>
                     ))}
 
-                    {status === 'authenticated' && currentUser ? (
-                      <button
-                        onClick={() => {
-                          setIsUserMenuOpen(false)
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Sign out
-                      </button>
-                    ) : (
-                      <div className="border-t border-border mt-1 pt-1 space-y-1">
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false)
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
-                        >
-                          <Rocket className="w-4 h-4" />
-                          Sign in with Google
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false)
-                          }}
-                          className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-card-hover text-left"
-                        >
-                          <FolderGit2 className="w-4 h-4" />
-                          Sign in with GitHub
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}
@@ -271,38 +234,6 @@ export default function Header({ projects, users, botStatus }: HeaderProps) {
                 </div>
               )}
 
-              {status === 'authenticated' && currentUser ? (
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false)
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign out
-                </button>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
-                  >
-                    <Rocket className="w-4 h-4" />
-                    Google
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsMobileMenuOpen(false)
-                    }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-card-hover transition-colors justify-center"
-                  >
-                    <FolderGit2 className="w-4 h-4" />
-                    GitHub
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}

@@ -1,195 +1,309 @@
 import { OpenClawClient, createOpenClawClient } from '../lib/openclaw-client'
+import { readFile } from 'fs/promises'
 
-const mockFetch = jest.fn()
-globalThis.fetch = mockFetch as any
+jest.mock('fs/promises')
+const mockReadFile = readFile as jest.MockedFunction<typeof readFile>
 
-const mockOk = (body: unknown) =>
-  Promise.resolve({ ok: true, status: 200, statusText: 'OK', json: () => Promise.resolve(body) } as Response)
+// ── WebSocket mock ─────────────────────────────────────────────────────────
 
-const mockErr = (status: number, text: string) =>
-  Promise.resolve({ ok: false, status, statusText: text, json: () => Promise.resolve({ error: text }) } as Response)
+type WsHandler = (event: any) => void
+
+class MockWebSocket {
+  static instance: MockWebSocket | null = null
+  handlers: Record<string, WsHandler[]> = {}
+  sent: string[] = []
+  closed = false
+
+  constructor(public url: string, public opts?: any) {
+    MockWebSocket.instance = this
+  }
+
+  addEventListener(event: string, handler: WsHandler) {
+    if (!this.handlers[event]) this.handlers[event] = []
+    this.handlers[event].push(handler)
+  }
+
+  send(data: string) { this.sent.push(data) }
+
+  close() { this.closed = true }
+
+  emit(event: string, payload: any) {
+    this.handlers[event]?.forEach(h => h(payload))
+  }
+
+  /** Simulate normal connect+RPC sequence */
+  simulateSuccess(payload: any) {
+    this.emit('message', { data: JSON.stringify({ type: 'event', event: 'connect.challenge', payload: { nonce: 'n', ts: 1 } }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'c', ok: true, payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'r', ok: true, payload }) })
+  }
+
+  simulateConnectFail(message: string) {
+    this.emit('message', { data: JSON.stringify({ type: 'event', event: 'connect.challenge', payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'c', ok: false, error: { message } }) })
+  }
+
+  simulateRpcFail(message: string) {
+    this.emit('message', { data: JSON.stringify({ type: 'event', event: 'connect.challenge', payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'c', ok: true, payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'r', ok: false, error: { message } }) })
+  }
+
+  /** Simulate cron.add success (used by sendMessage/chat) */
+  simulateCronAdd(jobId: string, agentId = 'harvis') {
+    this.emit('message', { data: JSON.stringify({ type: 'event', event: 'connect.challenge', payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'c', ok: true, payload: {} }) })
+    this.emit('message', { data: JSON.stringify({ type: 'res', id: 'add', ok: true, payload: { id: jobId } }) })
+    // Simulate the chat.final event (for chat tests that need a response)
+    const sessionKey = `agent:${agentId}:cron:${jobId}`
+    this.emit('message', { data: JSON.stringify({ type: 'event', event: 'chat', payload: { state: 'final', sessionKey, message: { role: 'assistant', content: [{ type: 'text', text: 'done' }] } } }) })
+  }
+}
+
+globalThis.WebSocket = MockWebSocket as any
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+const sampleConfig = {
+  agents: { list: [{ id: 'harvis', name: 'Harvis', model: 'anthropic/claude-sonnet-4-6' }] },
+}
 
 beforeEach(() => {
   jest.clearAllMocks()
+  MockWebSocket.instance = null
   delete process.env.OPENCLAW_GATEWAY_URL
   delete process.env.OPENCLAW_GATEWAY_TOKEN
+  delete process.env.OPENCLAW_CONFIG_PATH
 })
+
+// ── constructor ─────────────────────────────────────────────────────────────
 
 describe('constructor', () => {
-  it('defaults to localhost:18789', () => {
+  it('defaults to HOME/.openclaw/openclaw.json', () => {
+    process.env.HOME = '/home/test'
     const c = new OpenClawClient()
-    expect(c['baseUrl']).toBe('http://localhost:18789')
-    expect(c['token']).toBe('')
+    expect(c['configPath']).toBe('/home/test/.openclaw/openclaw.json')
   })
 
-  it('uses env vars when no args', () => {
-    process.env.OPENCLAW_GATEWAY_URL = 'http://gw'
-    process.env.OPENCLAW_GATEWAY_TOKEN = 'mytoken'
-    const c = new OpenClawClient()
-    expect(c['baseUrl']).toBe('http://gw')
-    expect(c['token']).toBe('mytoken')
+  it('uses OPENCLAW_CONFIG_PATH env var', () => {
+    process.env.OPENCLAW_CONFIG_PATH = '/custom/path.json'
+    expect(new OpenClawClient()['configPath']).toBe('/custom/path.json')
   })
 
-  it('explicit args override env vars', () => {
-    const c = new OpenClawClient('http://custom', 'other')
-    expect(c['baseUrl']).toBe('http://custom')
-    expect(c['token']).toBe('other')
+  it('explicit arg overrides env var', () => {
+    process.env.OPENCLAW_CONFIG_PATH = '/env/path.json'
+    expect(new OpenClawClient('/explicit/path.json')['configPath']).toBe('/explicit/path.json')
   })
 })
+
+// ── createOpenClawClient ────────────────────────────────────────────────────
 
 describe('createOpenClawClient', () => {
   it('returns OpenClawClient instance', () => {
     expect(createOpenClawClient()).toBeInstanceOf(OpenClawClient)
   })
 
-  it('passes args through', () => {
-    const c = createOpenClawClient('http://x', 'tok')
-    expect(c['baseUrl']).toBe('http://x')
-    expect(c['token']).toBe('tok')
+  it('passes configPath through', () => {
+    expect(createOpenClawClient('/p.json')['configPath']).toBe('/p.json')
   })
 })
 
-describe('getAgents', () => {
-  it('parses agents from agents.list', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ agents: { list: [{ id: '1', name: 'Codex' }] } }))
-    expect(await new OpenClawClient().getAgents()).toEqual([{ id: '1', name: 'Codex' }])
+// ── getConfig ───────────────────────────────────────────────────────────────
+
+describe('getConfig', () => {
+  it('reads and parses the config file', async () => {
+    mockReadFile.mockResolvedValueOnce(JSON.stringify(sampleConfig) as any)
+    expect(await new OpenClawClient('/p.json').getConfig()).toEqual(sampleConfig)
+    expect(mockReadFile).toHaveBeenCalledWith('/p.json', 'utf-8')
   })
 
-  it('parses agents from agents array fallback', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ agents: [{ id: '2', name: 'Harvis' }] }))
-    expect(await new OpenClawClient().getAgents()).toEqual([{ id: '2', name: 'Harvis' }])
+  it('returns null when file not found', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('ENOENT'))
+    expect(await new OpenClawClient().getConfig()).toBeNull()
+  })
+})
+
+// ── getAgents (no gateway token) ────────────────────────────────────────────
+
+describe('getAgents without gateway token', () => {
+  it('reads agents from config file', async () => {
+    mockReadFile.mockResolvedValueOnce(JSON.stringify(sampleConfig) as any)
+    expect(await new OpenClawClient().getAgents()).toEqual(sampleConfig.agents.list)
   })
 
-  it('returns empty array when agents missing', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({}))
+  it('returns empty array when file missing', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('ENOENT'))
     expect(await new OpenClawClient().getAgents()).toEqual([])
   })
 
-  it('sets Authorization header when token provided', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ agents: [] }))
-    await new OpenClawClient('http://x', 'tok').getAgents()
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/config', expect.objectContaining({
-      headers: expect.objectContaining({ Authorization: 'Bearer tok' }),
-    }))
-  })
-
-  it('throws on 401', async () => {
-    mockFetch.mockReturnValueOnce(mockErr(401, 'Unauthorized'))
-    await expect(new OpenClawClient().getAgents()).rejects.toThrow('401')
-  })
-
-  it('throws on connection error', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'))
-    await expect(new OpenClawClient().getAgents()).rejects.toThrow('ECONNREFUSED')
-  })
-})
-
-describe('getSessions', () => {
-  it('returns sessions array', async () => {
-    const sessions = [{ sessionKey: 'sk1', status: 'active' }]
-    mockFetch.mockReturnValueOnce(mockOk(sessions))
-    expect(await new OpenClawClient().getSessions()).toEqual(sessions)
-  })
-
-  it('handles sessions wrapped in object', async () => {
-    const sessions = [{ sessionKey: 'sk1', status: 'active' }]
-    mockFetch.mockReturnValueOnce(mockOk({ sessions }))
-    expect(await new OpenClawClient().getSessions()).toEqual(sessions)
-  })
-
-  it('passes activeMinutes as query param', async () => {
-    mockFetch.mockReturnValueOnce(mockOk([]))
-    await new OpenClawClient('http://x').getSessions({ activeMinutes: 30 })
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions?activeMinutes=30', expect.anything())
-  })
-
-  it('throws on 404', async () => {
-    mockFetch.mockReturnValueOnce(mockErr(404, 'Not Found'))
-    await expect(new OpenClawClient().getSessions()).rejects.toThrow('404')
-  })
-})
-
-describe('sendTask', () => {
-  it('sends message and returns reply', async () => {
-    const res = { reply: 'Done', status: 'completed' }
-    mockFetch.mockReturnValueOnce(mockOk(res))
-    expect(await new OpenClawClient('http://x').sendTask('sk1', 'do work')).toEqual(res)
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions/send', expect.objectContaining({ method: 'POST' }))
-  })
-
-  it('throws on error response', async () => {
-    mockFetch.mockReturnValueOnce(mockErr(500, 'Server Error'))
-    await expect(new OpenClawClient().sendTask('sk', 'msg')).rejects.toThrow('500')
-  })
-})
-
-describe('spawnTask', () => {
-  it('spawns task without agentId', async () => {
-    const res = { sessionKey: 'new-session', reply: 'started' }
-    mockFetch.mockReturnValueOnce(mockOk(res))
-    expect(await new OpenClawClient('http://x').spawnTask('build feature')).toEqual(res)
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions/spawn', expect.objectContaining({ method: 'POST' }))
-  })
-
-  it('spawns task with agentId in body', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ sessionKey: 's2', reply: 'ok' }))
-    await new OpenClawClient('http://x').spawnTask('task', 'agent-1')
-    const call = mockFetch.mock.calls[0]
-    expect(JSON.parse(call[1].body)).toMatchObject({ task: 'task', agentId: 'agent-1' })
-  })
-
-  it('throws on connection refused', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'))
-    await expect(new OpenClawClient().spawnTask('task')).rejects.toThrow('ECONNREFUSED')
-  })
-})
-
-describe('getSessionStatus', () => {
-  it('returns session status', async () => {
-    const res = { sessionKey: 'sk1', model: 'claude', tokensUsed: 100 }
-    mockFetch.mockReturnValueOnce(mockOk(res))
-    expect(await new OpenClawClient('http://x').getSessionStatus('sk1')).toEqual(res)
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions/sk1/status', expect.anything())
-  })
-
-  it('encodes sessionKey in URL', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ sessionKey: 'sk:x', model: 'gpt' }))
-    await new OpenClawClient('http://x').getSessionStatus('sk:x')
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions/sk%3Ax/status', expect.anything())
-  })
-
-  it('throws on 401 unauthorized', async () => {
-    mockFetch.mockReturnValueOnce(mockErr(401, 'Unauthorized'))
-    await expect(new OpenClawClient().getSessionStatus('sk1')).rejects.toThrow('401')
-  })
-})
-
-describe('edge cases', () => {
   it('returns empty array when agents.list is not an array', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ agents: { list: 'not-array' } }))
+    mockReadFile.mockResolvedValueOnce(JSON.stringify({ agents: { list: 'bad' } }) as any)
     expect(await new OpenClawClient().getAgents()).toEqual([])
-  })
-
-  it('getSessions no filters produces no query string', async () => {
-    mockFetch.mockReturnValueOnce(mockOk([]))
-    await new OpenClawClient('http://x').getSessions()
-    expect(mockFetch).toHaveBeenCalledWith('http://x/api/sessions', expect.anything())
   })
 })
 
-describe('ping', () => {
-  it('returns true when gateway is reachable', async () => {
-    mockFetch.mockReturnValueOnce(mockOk({ agents: [] }))
+// ── getAgents (with gateway token — WS) ────────────────────────────────────
+
+describe('getAgents with gateway token (WS)', () => {
+  beforeEach(() => {
+    process.env.OPENCLAW_GATEWAY_TOKEN = 'tok'
+    process.env.OPENCLAW_GATEWAY_URL = 'http://gw:18789'
+  })
+
+  it('returns agents from WS agents.list', async () => {
+    const agents = [{ id: 'harvis', name: 'Harvis' }]
+    const promise = new OpenClawClient().getAgents()
+    MockWebSocket.instance!.simulateSuccess({ agents })
+    expect(await promise).toEqual(agents)
+  })
+
+  it('sends connect with cli mode and token', async () => {
+    const promise = new OpenClawClient().getAgents()
+    const ws = MockWebSocket.instance!
+    ws.simulateSuccess({ agents: [] })
+    await promise
+    const connectMsg = JSON.parse(ws.sent[0])
+    expect(connectMsg.method).toBe('connect')
+    expect(connectMsg.params.client.mode).toBe('cli')
+    expect(connectMsg.params.auth.token).toBe('tok')
+  })
+
+  it('sends agents.list RPC after connect', async () => {
+    const promise = new OpenClawClient().getAgents()
+    const ws = MockWebSocket.instance!
+    ws.simulateSuccess({ agents: [] })
+    await promise
+    const rpcMsg = JSON.parse(ws.sent[1])
+    expect(rpcMsg.method).toBe('agents.list')
+  })
+
+  it('falls back to file when WS connect fails', async () => {
+    mockReadFile.mockResolvedValueOnce(JSON.stringify(sampleConfig) as any)
+    const promise = new OpenClawClient().getAgents()
+    MockWebSocket.instance!.simulateConnectFail('no auth')
+    expect(await promise).toEqual(sampleConfig.agents.list)
+  })
+
+  it('falls back to [] when WS and file both fail', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('ENOENT'))
+    const promise = new OpenClawClient().getAgents()
+    MockWebSocket.instance!.simulateConnectFail('no auth')
+    expect(await promise).toEqual([])
+  })
+
+  it('returns empty array on WS RPC error', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('ENOENT'))
+    const promise = new OpenClawClient().getAgents()
+    MockWebSocket.instance!.simulateRpcFail('agents not found')
+    expect(await promise).toEqual([])
+  })
+})
+
+// ── sendMessage ─────────────────────────────────────────────────────────────
+
+describe('sendMessage', () => {
+  beforeEach(() => {
+    process.env.OPENCLAW_GATEWAY_TOKEN = 'tok'
+    process.env.OPENCLAW_GATEWAY_URL = 'http://gw:18789'
+  })
+
+  it('returns error when gateway token not configured', async () => {
+    delete process.env.OPENCLAW_GATEWAY_TOKEN
+    const result = await new OpenClawClient().sendMessage('harvis', 'do work')
+    expect(result).toEqual({ ok: false, error: 'OPENCLAW_GATEWAY_TOKEN not configured' })
+  })
+
+  it('returns ok after cron.add succeeds (fire-and-forget)', async () => {
+    const promise = new OpenClawClient().sendMessage('harvis', 'build feature')
+    const ws = MockWebSocket.instance!
+    ws.simulateCronAdd('job-1')
+    expect(await promise).toEqual({ ok: true })
+  })
+
+  it('sends cron.add with correct agentId and message', async () => {
+    const promise = new OpenClawClient().sendMessage('codex', 'do the task')
+    const ws = MockWebSocket.instance!
+    ws.simulateCronAdd('job-2')
+    await promise
+    const addMsg = ws.sent.map(s => JSON.parse(s)).find((m: any) => m.method === 'cron.add')
+    expect(addMsg?.params).toMatchObject({ agentId: 'codex', payload: { kind: 'agentTurn', message: 'do the task' } })
+  })
+
+  it('requests operator.admin scope for cron.add', async () => {
+    const promise = new OpenClawClient().sendMessage('harvis', 'hi')
+    const ws = MockWebSocket.instance!
+    ws.simulateCronAdd('job-3')
+    await promise
+    const connectMsg = JSON.parse(ws.sent[0])
+    expect(connectMsg.params.scopes).toContain('operator.admin')
+  })
+
+  it('returns error when cron.add fails', async () => {
+    const promise = new OpenClawClient().sendMessage('harvis', 'msg')
+    const ws = MockWebSocket.instance!
+    ws.emit('message', { data: JSON.stringify({ type: 'event', event: 'connect.challenge', payload: {} }) })
+    ws.emit('message', { data: JSON.stringify({ type: 'res', id: 'c', ok: true, payload: {} }) })
+    ws.emit('message', { data: JSON.stringify({ type: 'res', id: 'add', ok: false, error: { message: 'missing scope' } }) })
+    const result = await promise
+    expect(result.ok).toBe(false)
+    expect(result.error).toContain('missing scope')
+  })
+
+  it('returns error when WS connect fails', async () => {
+    const promise = new OpenClawClient().sendMessage('harvis', 'msg')
+    MockWebSocket.instance!.simulateConnectFail('bad token')
+    const result = await promise
+    expect(result.ok).toBe(false)
+  })
+
+  it('includes delivery in cron.add params when provided', async () => {
+    const delivery = { channel: 'discord', to: '123456789', bestEffort: false }
+    const promise = new OpenClawClient().sendMessage('harvis', 'hi', delivery)
+    const ws = MockWebSocket.instance!
+    ws.simulateCronAdd('job-4')
+    await promise
+    const addMsg = ws.sent.map(s => JSON.parse(s)).find((m: any) => m.method === 'cron.add')
+    expect(addMsg?.params.delivery).toMatchObject({ mode: 'announce', channel: 'discord', to: '123456789', bestEffort: false })
+  })
+
+  it('omits delivery in cron.add params when not provided', async () => {
+    const promise = new OpenClawClient().sendMessage('harvis', 'hi')
+    const ws = MockWebSocket.instance!
+    ws.simulateCronAdd('job-5')
+    await promise
+    const addMsg = ws.sent.map(s => JSON.parse(s)).find((m: any) => m.method === 'cron.add')
+    expect(addMsg?.params.delivery).toBeUndefined()
+  })
+})
+
+// ── ping ────────────────────────────────────────────────────────────────────
+
+describe('ping without gateway token', () => {
+  it('returns true when config file is readable', async () => {
+    mockReadFile.mockResolvedValueOnce(JSON.stringify(sampleConfig) as any)
     expect(await new OpenClawClient().ping()).toBe(true)
   })
 
-  it('returns false when gateway is unreachable', async () => {
-    mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'))
+  it('returns false when file not readable', async () => {
+    mockReadFile.mockRejectedValueOnce(new Error('ENOENT'))
     expect(await new OpenClawClient().ping()).toBe(false)
   })
+})
 
-  it('returns false on HTTP error', async () => {
-    mockFetch.mockReturnValueOnce(mockErr(500, 'Server Error'))
-    expect(await new OpenClawClient().ping()).toBe(false)
+describe('ping with gateway token (WS)', () => {
+  beforeEach(() => {
+    process.env.OPENCLAW_GATEWAY_TOKEN = 'tok'
+  })
+
+  it('returns true when gateway responds to health', async () => {
+    const promise = new OpenClawClient().ping()
+    MockWebSocket.instance!.simulateSuccess({})
+    expect(await promise).toBe(true)
+  })
+
+  it('returns false when gateway connect fails', async () => {
+    const promise = new OpenClawClient().ping()
+    MockWebSocket.instance!.simulateConnectFail('bad token')
+    expect(await promise).toBe(false)
   })
 })

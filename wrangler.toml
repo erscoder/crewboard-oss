@@ -1,4 +1,4 @@
-name = "mission-control"
+name = "crewboard"
 compatibility_date = "2025-01-30"
 pages_build_output_dir = ".vercel/output/static"
 functions = ".vercel/output/functions"

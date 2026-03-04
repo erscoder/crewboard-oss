@@ -129,7 +129,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
   }, [tasks, selectedTask?.id])
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <DragDropContext onDragEnd={onDragEnd}>
         {/* Main Kanban Board */}
         <div className="flex flex-1 min-h-0 gap-4 overflow-x-auto pb-2 snap-x snap-mandatory md:gap-5 md:pb-3 lg:grid lg:grid-cols-4 lg:gap-6 lg:overflow-visible lg:snap-none">
@@ -140,7 +140,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
             return (
               <div
                 key={column.id}
-                className="flex flex-col min-h-0 max-h-[700px] w-[260px] flex-shrink-0 snap-start overflow-hidden md:w-[320px] lg:w-auto lg:flex-shrink"
+                className="flex flex-col min-h-0 w-[260px] flex-shrink-0 snap-start overflow-hidden md:w-[320px] lg:w-auto lg:flex-shrink"
               >
                 {/* Column Header */}
                 <div className="sticky top-0 z-10 mb-4 flex items-center gap-2  md:mb-5">
@@ -198,7 +198,7 @@ export default function KanbanBoard({ initialTasks, users, currentUserId }: Kanb
         </div>
 
         {/* Backlog Section - Horizontal at bottom */}
-        <div className="mt-6 border-t border-border pt-4">
+        <div className="mt-4 border-t border-border pt-3 flex-shrink-0">
           <button
             onClick={() => setBacklogExpanded(!backlogExpanded)}
             className="flex items-center gap-2 mb-3 hover:text-primary transition-colors"

@@ -5,24 +5,20 @@ import { prisma } from '@/lib/prisma'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { taskId, agentSessionKey, message } = body as {
+    const { taskId, agentId, message } = body as {
       taskId?: string
-      agentSessionKey?: string
+      agentId: string
       message: string
     }
 
-    if (!message) {
-      return NextResponse.json({ error: 'message is required' }, { status: 400 })
+    if (!agentId || !message) {
+      return NextResponse.json({ error: 'agentId and message are required' }, { status: 400 })
     }
 
-    const client = createOpenClawClient()
-    let result: { reply: string; status: string; sessionKey?: string }
+    const result = await createOpenClawClient().sendMessage(agentId, message)
 
-    if (agentSessionKey) {
-      result = await client.sendTask(agentSessionKey, message)
-    } else {
-      const spawned = await client.spawnTask(message)
-      result = { ...spawned, status: 'spawned' }
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 502 })
     }
 
     // Update task status if taskId provided
@@ -35,7 +31,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json(result)
+    return NextResponse.json({ ok: true })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return NextResponse.json({ error: message }, { status: 500 })

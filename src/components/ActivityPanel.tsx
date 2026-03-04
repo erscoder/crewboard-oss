@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ComponentType } from 'react'
+import { useMemo, useState, type ComponentType } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -42,12 +42,6 @@ const ACTION_ICON: Record<string, ComponentType<{ className?: string }>> = {
 export default function ActivityPanel({ activities }: { activities: ActivityItem[] }) {
   const [isOpen, setIsOpen] = useState(false)
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    // Default open on desktop, collapsed on tablets for more Kanban space
-    setIsOpen(window.innerWidth >= 1280)
-  }, [])
-
   const items = useMemo(
     () =>
       activities.map((activity) => {
@@ -55,7 +49,7 @@ export default function ActivityPanel({ activities }: { activities: ActivityItem
         const user = activity.user?.name || 'Alguien'
         const taskName =
           activity.task?.title ??
-          activity.message.replace(/Task\\s*\"?/, '').replace(/\"?\\s*$/, '')
+          activity.message.replace(/Task\s*"?/, '').replace(/"?\s*$/, '')
 
         return {
           ...activity,
@@ -73,23 +67,27 @@ export default function ActivityPanel({ activities }: { activities: ActivityItem
     >
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        aria-label={isOpen ? 'Ocultar panel de actividad' : 'Mostrar panel de actividad'}
+        aria-label={isOpen ? 'Ocultar panel' : 'Mostrar panel'}
         aria-expanded={isOpen}
         className="absolute -left-3 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card hover:bg-card-hover transition-colors"
       >
         {isOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
       </button>
 
-      <div className={`flex items-center gap-2 px-4 py-3 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <ActivitySquare className="h-4 w-4 text-primary" />
-        <h3 className="text-sm font-semibold tracking-tight">Actividad reciente</h3>
-        <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
-          {activities.length}
-        </span>
-      </div>
+      <div
+        className={`flex flex-col h-full transition-opacity duration-200 ${
+          isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-shrink-0">
+          <ActivitySquare className="h-4 w-4 text-primary" />
+          <h3 className="text-sm font-semibold tracking-tight">Actividad</h3>
+          <span className="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
+            {activities.length}
+          </span>
+        </div>
 
-      <div className={`${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'} transition-opacity duration-200`}>
-        <div className="h-[calc(100vh-160px)] overflow-y-auto px-4 pb-6 space-y-3">
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
           {items.map((activity) => {
             const Icon = ACTION_ICON[activity.type] ?? ActivitySquare
             const when = formatDistanceToNow(new Date(activity.createdAt), {
@@ -103,12 +101,12 @@ export default function ActivityPanel({ activities }: { activities: ActivityItem
                 className="rounded-xl border border-border bg-gradient-to-br from-card/60 to-card/30 p-3 shadow-sm"
               >
                 <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-card-hover/60">
-                    <Icon className="h-5 w-5 text-primary" />
+                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg bg-card-hover/60 flex-shrink-0">
+                    <Icon className="h-4 w-4 text-primary" />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm leading-snug text-foreground">{activity.displayText}</p>
-                    <p className="text-xs text-muted-foreground">{when}</p>
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <p className="text-xs leading-snug text-foreground">{activity.displayText}</p>
+                    <p className="text-[11px] text-muted-foreground">{when}</p>
                   </div>
                 </div>
               </div>
@@ -116,8 +114,8 @@ export default function ActivityPanel({ activities }: { activities: ActivityItem
           })}
 
           {items.length === 0 && (
-            <div className="mt-6 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-              Aún no hay actividad registrada.
+            <div className="mt-4 rounded-lg border border-dashed border-border px-4 py-5 text-center text-xs text-muted-foreground">
+              Aún no hay actividad.
             </div>
           )}
         </div>

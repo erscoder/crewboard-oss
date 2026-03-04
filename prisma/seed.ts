@@ -10,9 +10,9 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // Paths - adjust if Clawdbot is installed elsewhere
-const CLAWDBOT_ROOT = process.env.CLAWDBOT_ROOT || '/Users/kike/clawd'
-const PROJECTS_DIR = path.join(CLAWDBOT_ROOT, 'projects')
-const SKILLS_DIR = path.join(CLAWDBOT_ROOT, 'skills')
+const OPENCLAW_WORKSPACE = process.env.OPENCLAW_WORKSPACE || '/Users/kike/clawd'
+const PROJECTS_DIR = path.join(OPENCLAW_WORKSPACE, 'projects')
+const SKILLS_DIR = path.join(OPENCLAW_WORKSPACE, 'skills')
 const LOCAL_SKILLS_DIR = path.join(__dirname, '..', 'skills')
 
 /**

@@ -43,6 +43,7 @@ async function getActorUserId() {
  * Sync database projects with filesystem folders
  * - Creates DB entries for folders that don't exist in DB
  * - Returns all projects
+ * NOTE: Does NOT revalidate — safe to call during rendering
  */
 export async function syncProjects() {
   const folders = await getProjectFolders()
@@ -62,7 +63,6 @@ export async function syncProjects() {
     }
   }
 
-  revalidateProjects()
   return prisma.project.findMany({
     include: {
       _count: { select: { tasks: true } },
