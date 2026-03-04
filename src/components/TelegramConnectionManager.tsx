@@ -80,42 +80,32 @@ export default function TelegramConnectionManager() {
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> Checking bot...
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading...
       </div>
     )
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2 text-sm">
-        <div className="flex items-center gap-2">
-          {status?.connected ? (
-            <>
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <span>
-                Bot connected: <strong>@{status.bot?.username}</strong>
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-              <span className="text-muted-foreground">
-                {status?.error || 'Not configured'}
-              </span>
-            </>
-          )}
-        </div>
-        {status?.connected && (
+      {status?.connected && (
+        <div className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium">@{status.bot?.username}</p>
+              <p className="text-[11px] text-muted-foreground">{status.bot?.firstName}</p>
+            </div>
+          </div>
           <button
             onClick={handleDisconnect}
             disabled={disconnecting}
-            className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
           >
             {disconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
             Disconnect
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {status?.connected && (
         <div className="flex items-center gap-2">
@@ -146,11 +136,18 @@ export default function TelegramConnectionManager() {
         <button
           onClick={handleReconnect}
           disabled={reconnecting}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-card transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-border px-4 py-2 text-sm hover:bg-card transition-colors disabled:opacity-50"
         >
-          {reconnecting ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          {reconnecting && <Loader2 className="h-4 w-4 animate-spin" />}
           Reconnect
         </button>
+      )}
+
+      {!status?.connected && !status?.disabled && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+          <span className="text-muted-foreground">{status?.error || 'Not configured'}</span>
+        </div>
       )}
 
       {!status?.connected && !status?.disabled && (

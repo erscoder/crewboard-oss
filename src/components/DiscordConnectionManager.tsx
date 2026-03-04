@@ -78,15 +78,15 @@ export default function DiscordConnectionManager() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {error && <p className="text-sm text-red-500">{error}</p>}
 
       {guilds.length > 0 && (
         <div className="space-y-2">
           {guilds.map((guild) => (
-            <div key={guild.id} className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
+            <div key={guild.id} className="flex items-center justify-between rounded-xl border border-border bg-background/60 px-4 py-3">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
                 <div>
                   <p className="text-sm font-medium">{guild.guildName}</p>
                   <p className="text-[11px] text-muted-foreground">
@@ -97,7 +97,7 @@ export default function DiscordConnectionManager() {
               <button
                 onClick={() => handleDisconnect(guild)}
                 disabled={deleting === guild.id}
-                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-2.5 py-1.5 text-xs text-red-500 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-red-500 hover:border-red-500/30 transition-colors disabled:opacity-50"
               >
                 {deleting === guild.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
                 Disconnect
@@ -118,7 +118,7 @@ export default function DiscordConnectionManager() {
         <button
           onClick={handleSync}
           disabled={syncing}
-          title="Sync servers from bot token (use if OAuth callback doesn't redirect back)"
+          title="Sync servers from bot token"
           className="inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm hover:bg-card transition-colors disabled:opacity-50"
         >
           {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
