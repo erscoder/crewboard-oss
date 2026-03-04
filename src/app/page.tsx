@@ -4,6 +4,7 @@ import StatsBar from '@/components/StatsBar'
 import Header from '@/components/Header'
 import ActivityPanel from '@/components/ActivityPanel'
 import { Suspense } from 'react'
+import { syncAgentsFromOpenClaw } from '@/app/agents/actions'
 
 async function getInitialData() {
   const [tasks, projects, users, botStatus] = await Promise.all([
@@ -55,6 +56,9 @@ async function getActivities() {
 export default async function Home() {
   const session = { user: { id: 'oss-user', name: 'User' } }
 
+  // Sync bot users with OpenClaw agents (deletes stale, creates missing)
+  await syncAgentsFromOpenClaw()
+
   const [{ tasks, projects, users, botStatus }, stats, activities] = await Promise.all([
     getInitialData(),
     getStats(),
@@ -65,7 +69,7 @@ export default async function Home() {
     session?.user?.id || users.find((u:any) => !u.isBot)?.id || users[0]?.id || ''
 
   return (
-    <main className="min-h-screen flex flex-col">
+    <main className="h-screen flex flex-col overflow-hidden">
       <Header 
         projects={projects} 
         users={users} 
