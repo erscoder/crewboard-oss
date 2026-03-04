@@ -2,7 +2,7 @@
 //
 // Primary data source: Gateway WebSocket RPC (agents, ping, agent triggering)
 // Fallback: openclaw.json config file (used only if no gateway token)
-// Agent triggering: cron.add via WS with wakeMode=now + optional delivery to Discord/Slack/Telegram
+// Agent triggering: sessions.send via WS — sends message directly to agent session, no cron created
 
 import { readFile } from 'fs/promises'
 import { join } from 'path'
@@ -116,15 +116,13 @@ export class OpenClawClient {
   }
 
   /**
-   * Trigger an agent via cron.add (wakeMode=now, deleteAfterRun=true).
-   * Optionally delivers the agent's response to Discord, Slack, or Telegram.
-   * Fire-and-forget — resolves after the cron job is created.
-   * Uses operator.admin scope (required by cron.add).
+   * Trigger an agent by sending a message to its session via sessions.send.
+   * No cron job is created — the message goes directly to the agent session.
+   * Fire-and-forget. Uses operator.write scope.
    */
   private wsRunAgent(
     agentId: string,
     message: string,
-    delivery?: { channel: string; to: string; bestEffort?: boolean },
   ): Promise<{ ok: boolean; error?: string }> {
     if (!this.gatewayToken) return Promise.resolve({ ok: false, error: 'OPENCLAW_GATEWAY_TOKEN not configured' })
 
@@ -165,31 +163,17 @@ export class OpenClawClient {
         } else if (msg.id === 'c') {
           if (!msg.ok) { finish({ ok: false, error: msg.error?.message ?? 'Connect failed' }); return }
 
+          // Send directly to the agent session — no cron job created
           const params: Record<string, unknown> = {
-            name: `crewboard-${Date.now()}`,
             agentId,
-            enabled: true,
-            deleteAfterRun: true,
-            sessionTarget: 'isolated',
-            wakeMode: 'now',
-            schedule: { kind: 'every', everyMs: 3_600_000 },
-            payload: { kind: 'agentTurn', message },
+            message,
           }
 
-          if (delivery) {
-            params.delivery = {
-              mode: 'announce',
-              channel: delivery.channel,
-              to: delivery.to,
-              bestEffort: delivery.bestEffort ?? true,
-            }
-          }
-
-          console.log('[openclaw] cron.add params:', JSON.stringify(params))
-          ws.send(JSON.stringify({ type: 'req', id: 'add', method: 'cron.add', params }))
-        } else if (msg.id === 'add') {
-          console.log('[openclaw] cron.add response:', JSON.stringify(msg))
-          finish(msg.ok ? { ok: true } : { ok: false, error: msg.error?.message ?? 'Failed to create agent task' })
+          console.log('[openclaw] sessions.send params:', JSON.stringify(params))
+          ws.send(JSON.stringify({ type: 'req', id: 'send', method: 'sessions.send', params }))
+        } else if (msg.id === 'send') {
+          console.log('[openclaw] sessions.send response:', JSON.stringify(msg))
+          finish(msg.ok ? { ok: true } : { ok: false, error: msg.error?.message ?? 'Failed to send message to agent' })
         }
       })
     })
@@ -375,16 +359,14 @@ export class OpenClawClient {
   }
 
   /**
-   * Fire-and-forget: trigger an agent with a message via cron.add (wakeMode=now).
-   * Never throws. Used for task assignment triggers.
-   * Optional delivery config routes the agent's response to Discord, Slack, or Telegram.
+   * Fire-and-forget: send a message directly to an agent session via sessions.send.
+   * No cron job is created. Never throws. Used for task assignment triggers.
    */
   async sendMessage(
     agentId: string,
     message: string,
-    delivery?: { channel: string; to: string; bestEffort?: boolean },
   ): Promise<{ ok: boolean; error?: string }> {
-    return this.wsRunAgent(agentId, message, delivery)
+    return this.wsRunAgent(agentId, message)
   }
 
   /**
