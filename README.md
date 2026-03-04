@@ -1,49 +1,51 @@
-# CrewBoard 🚀
+# CrewBoard
 
 **AI Agent Task Management** — A Kanban board where humans create tasks and AI agents pick them up, execute them, and report back.
 
 Think **JIRA meets autonomous AI agents.**
 
-## ✨ Features
+## Features
 
-- 📋 **Kanban Board** — Backlog → TODO → In Progress → Review → Done
-- 🤖 **Multi-Agent Support** — Human + AI agents with specialized skills
-- 🎨 **Project Sync** — Auto-synced from your workspace
-- 🧠 **Agent Skills** — Define what each agent knows how to do
-- 📊 **Stats Banner** — Weekly progress, completion rate
-- 🟢 **Live Indicator** — Shows when agents are actively working
-- 🔄 **Drag & Drop** — Move tasks between columns
-- 💬 **Slack Integration** — Assignment notifications + bidirectional comments
-- 🔑 **BYOK** — Bring Your Own API Key (OpenAI, Anthropic, Google/Gemini)
-- 📈 **Usage Dashboard** — Track token usage with limits and alerts
+- **Kanban Board** — Backlog, TODO, In Progress, Review, Done
+- **Multi-Agent Support** — Human + AI agents via OpenClaw gateway
+- **REST API** — Agents manage tasks programmatically (`/api/tasks`)
+- **Drag & Drop** — Move tasks between columns
+- **Slack / Discord / Telegram** — Notifications on assignment and completion
+- **Agent Delivery** — Route agent responses to your preferred channel
+- **Usage Dashboard** — Track token usage per agent and model
+- **Project Sync** — Auto-synced from your workspace folders
+- **Live Indicator** — Shows when agents are actively working
 
-## 🖥️ Screenshot
+## Screenshots
 
-> Coming soon
+### Kanban Board
+![Kanban Board](public/crewboard-1.png)
 
-## 🚀 Quick Start
+### Task Detail
+![Task Detail](public/crewboard-2.png)
+
+### Settings
+![Settings](public/crewboard-3.png)
+
+## Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/erscoder/crewboard.git
-cd crewboard
+git clone https://github.com/erscoder/crewboard-oss.git
+cd crewboard-oss
 
-# Install
 npm install
 
-# Setup database
 cp .env.example .env
 # Edit .env with your DATABASE_URL (PostgreSQL)
 
-# Push schema and seed
 npm run db:push
 npm run db:seed
-
-# Start dev server
 npm run dev
 ```
 
-## 🤖 How It Works
+Open [http://localhost:3020](http://localhost:3020).
+
+## How It Works
 
 ### Task Workflow
 
@@ -51,57 +53,56 @@ npm run dev
 BACKLOG → TODO → IN_PROGRESS → REVIEW → DONE
 ```
 
-1. **Human creates task** → Goes to BACKLOG
-2. **Human prioritizes** → Moves to TODO, assigns to agent
-3. **Agent starts work** → Moves to IN_PROGRESS automatically
-4. **Agent finishes** → Moves to REVIEW with summary comment
-5. **Human reviews** → Approves to DONE
+1. **Human creates task** — goes to BACKLOG
+2. **Human assigns to agent** — moves to TODO, agent gets triggered via OpenClaw
+3. **Agent works** — moves to IN_PROGRESS
+4. **Agent finishes** — moves to REVIEW with summary
+5. **Human reviews** — approves to DONE
 
-### Agent Skills
+### REST API for Agents
 
-Skills define what each agent can do. Drop a `SKILL.md` in the `skills/` folder:
+Agents use `GET/POST/PATCH/DELETE /api/tasks` to manage tasks programmatically:
 
-```
-skills/
-├── dev-engineer/SKILL.md       # Writes code, fixes bugs, runs tests
-├── ui-designer/SKILL.md        # Creates interfaces, CSS/Tailwind
-├── marketing-specialist/SKILL.md  # Social media, content, campaigns
-├── product-manager/SKILL.md    # Roadmap, specs, prioritization
-├── data-analyst/SKILL.md       # SQL, metrics, dashboards
-└── copywriter/SKILL.md         # Conversion copywriting
-```
+```bash
+# List tasks, projects, and users
+curl http://localhost:3020/api/tasks
 
-### API for Agents
+# Create a task
+curl -X POST http://localhost:3020/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Fix login bug", "projectId": "..."}'
 
-```typescript
-// Move task
-await moveTask(taskId, 'IN_PROGRESS', 0)
-
-// Update bot status (shows live indicator)
-await updateBotStatus(true, taskId)
-
-// Add comment
-await addComment(taskId, userId, 'Completed the feature')
+# Move task to REVIEW
+curl -X PATCH http://localhost:3020/api/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"taskId": "...", "status": "REVIEW"}'
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-- **Next.js 14** (App Router)
+- **Next.js 15** (App Router)
 - **TypeScript**
 - **Tailwind CSS**
 - **Prisma + PostgreSQL**
+- **OpenClaw** (AI agent gateway)
 - **@hello-pangea/dnd** (drag & drop)
 
-## 🔧 Environment
+## Environment
+
+Copy `.env.example` and configure:
 
 ```bash
 DATABASE_URL=postgresql://user:pass@localhost:5432/crewboard
+OPENCLAW_GATEWAY_URL=http://localhost:18789
+OPENCLAW_GATEWAY_TOKEN=your_token
 ```
 
-## 📄 License
+Optional: `SLACK_CLIENT_ID/SECRET`, `DISCORD_BOT_TOKEN`, `TELEGRAM_BOT_TOKEN` for notifications.
+
+## License
 
 MIT
 
-## 🤝 Contributing
+## Contributing
 
 PRs welcome! Check the issues tab for good first issues.
